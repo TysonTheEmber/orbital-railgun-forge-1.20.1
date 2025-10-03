@@ -20,8 +20,8 @@ versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
 [[dependencies.${mod_id}]]
-modId="geckolib3"
-mandatory=false
+modId="geckolib"
+mandatory=true
 versionRange="[4.0.0,)"
 ordering="NONE"
-side="CLIENT"
+side="BOTH"
