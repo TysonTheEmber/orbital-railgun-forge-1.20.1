@@ -170,14 +170,23 @@ public final class ClientEvents {
         if (compatActive != compatModeActive || overlayActive != compatOverlayEnabled) {
             compatModeActive = compatActive;
             compatOverlayEnabled = overlayActive;
+
             if (compatModeActive) {
                 closeChain();
-            } else if (!chainReady || railgunChain == null) {
-                loadChain(minecraft, minecraft.getResourceManager());
+                if (compatOverlayEnabled && compatOverlayEffect == null) {
+                    loadCompatOverlay(minecraft.getResourceManager());
+                }
+            } else {
+                closeCompatOverlay();
+                if (!chainReady || railgunChain == null) {
+                    loadChain(minecraft, minecraft.getResourceManager());
+                }
             }
+
             if (!compatOverlayEnabled) {
                 closeCompatOverlay();
             }
+
             logShaderpackState("state-change", shaderpackActive, compatActive, overlayActive);
         }
 
@@ -224,8 +233,13 @@ public final class ClientEvents {
 
         boolean shaderpackActive = OculusCompat.isShaderpackActive();
         boolean compatActive = shouldUseCompat(shaderpackActive);
-        if (!shouldDrawCompatOverlay(shaderpackActive, compatActive)) {
+        boolean drawOverlay = shouldDrawCompatOverlay(shaderpackActive, compatActive);
+        if (!drawOverlay) {
             return;
+        }
+
+        if (compatOverlayEffect == null && drawOverlay) {
+            loadCompatOverlay(minecraft.getResourceManager());
         }
 
         drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
@@ -283,7 +297,7 @@ public final class ClientEvents {
             }
             Uniform intensityUniform = safeGetUniform(compatOverlayEffect, "uIntensity");
             if (intensityUniform != null) {
-                intensityUniform.set(1.0F);
+                intensityUniform.set(2.0F);
             }
             compatOverlayEffect.apply();
             formatUsed = DefaultVertexFormat.POSITION_TEX;
@@ -301,10 +315,10 @@ public final class ClientEvents {
         }
 
         if (formatUsed == DefaultVertexFormat.POSITION_COLOR) {
-            bufferBuilder.vertex(0.0D, height, 0.0D).color(0, 0, 0, 90).endVertex();
-            bufferBuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 90).endVertex();
-            bufferBuilder.vertex(width, 0.0D, 0.0D).color(0, 0, 0, 90).endVertex();
-            bufferBuilder.vertex(width, height, 0.0D).color(0, 0, 0, 90).endVertex();
+            bufferBuilder.vertex(0.0D, height, 0.0D).color(0, 0, 0, 180).endVertex();
+            bufferBuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 180).endVertex();
+            bufferBuilder.vertex(width, 0.0D, 0.0D).color(0, 0, 0, 180).endVertex();
+            bufferBuilder.vertex(width, height, 0.0D).color(0, 0, 0, 180).endVertex();
         } else {
             bufferBuilder.vertex(0.0D, height, 0.0D).uv(0.0F, 1.0F).endVertex();
             bufferBuilder.vertex(0.0D, 0.0D, 0.0D).uv(0.0F, 0.0F).endVertex();
