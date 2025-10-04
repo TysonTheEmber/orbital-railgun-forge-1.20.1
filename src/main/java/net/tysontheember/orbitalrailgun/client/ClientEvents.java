@@ -43,7 +43,7 @@ import java.util.Set;
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
-    private static final Field PASSES_FIELD = ObfuscationReflectionHelper.findField(PostChain.class, "passes");
+    private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
             ForgeOrbitalRailgunMod.id("gui")
@@ -57,7 +57,11 @@ public final class ClientEvents {
     private static boolean attackWasDown;
 
     static {
-        PASSES_FIELD.setAccessible(true);
+        if (PASSES_FIELD != null) {
+            PASSES_FIELD.setAccessible(true);
+        } else {
+            ForgeOrbitalRailgunMod.LOGGER.error("Failed to locate orbital railgun post chain passes field");
+        }
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientEvents::onRegisterReloadListeners);
     }
 
@@ -251,16 +255,44 @@ public final class ClientEvents {
         return name != null ? ResourceLocation.tryParse(name) : null;
     }
 
-    @SuppressWarnings("unchecked")
     private static List<PostPass> getPasses() {
         if (railgunChain == null) {
             return Collections.emptyList();
         }
+        if (PASSES_FIELD == null) {
+            return Collections.emptyList();
+        }
         try {
-            return (List<PostPass>) PASSES_FIELD.get(railgunChain);
+            Object value = PASSES_FIELD.get(railgunChain);
+            if (value instanceof List<?> list) {
+                @SuppressWarnings("unchecked")
+                List<PostPass> passes = (List<PostPass>) list;
+                return passes;
+            }
+            ForgeOrbitalRailgunMod.LOGGER.error(
+                    "Orbital railgun post chain passes had unexpected type: {}",
+                    value == null ? "null" : value.getClass().getName()
+            );
         } catch (IllegalAccessException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to access orbital railgun post chain passes", exception);
             return Collections.emptyList();
+        }
+        return Collections.emptyList();
+    }
+
+    private static Field findPassesField() {
+        try {
+            return ObfuscationReflectionHelper.findField(PostChain.class, "passes");
+        } catch (ObfuscationReflectionHelper.UnableToFindFieldException ignored) {
+            try {
+                return ObfuscationReflectionHelper.findField(PostChain.class, "f_110009_");
+            } catch (ObfuscationReflectionHelper.UnableToFindFieldException exception) {
+                ForgeOrbitalRailgunMod.LOGGER.error(
+                        "Unable to find passes field on PostChain using Mojmap or SRG identifiers",
+                        exception
+                );
+                return null;
+            }
         }
     }
 
