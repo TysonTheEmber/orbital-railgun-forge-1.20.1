@@ -27,18 +27,22 @@ public record C2S_RequestFire(BlockPos target) {
                 return;
             }
 
-            ItemStack stack = player.getUseItem();
-            if (!(stack.getItem() instanceof OrbitalRailgunItem railgun)) {
-                return;
+            ItemStack stack = player.getMainHandItem();
+            OrbitalRailgunItem railgun;
+            if (stack.getItem() instanceof OrbitalRailgunItem mainHandRailgun) {
+                railgun = mainHandRailgun;
+            } else {
+                stack = player.getOffhandItem();
+                if (stack.getItem() instanceof OrbitalRailgunItem offhandRailgun) {
+                    railgun = offhandRailgun;
+                } else {
+                    return;
+                }
             }
 
             if (player.getCooldowns().isOnCooldown(railgun)) {
                 return;
             }
-
-//            if (!player.isUsingItem()) {
-//                return;
-//            }
 
             railgun.applyCooldown(player);
             OrbitalRailgunStrikeManager.startStrike(player, packet.target);
