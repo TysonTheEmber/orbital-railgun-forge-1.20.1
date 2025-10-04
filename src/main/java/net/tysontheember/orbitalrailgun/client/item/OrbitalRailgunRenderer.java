@@ -1,7 +1,7 @@
-package com.mishkis.orbitalrailgun.client.item;
+package net.tysontheember.orbitalrailgun.client.item;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
-import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import software.bernie.geckolib.model.DefaultedItemGeoModel;
 import software.bernie.geckolib.renderer.GeoItemRenderer;
 

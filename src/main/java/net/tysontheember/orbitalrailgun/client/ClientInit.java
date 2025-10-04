@@ -1,6 +1,6 @@
-package com.mishkis.orbitalrailgun.client;
+package net.tysontheember.orbitalrailgun.client;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;

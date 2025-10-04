@@ -1,10 +1,10 @@
-package com.mishkis.orbitalrailgun.client;
+package net.tysontheember.orbitalrailgun.client;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
-import com.mishkis.orbitalrailgun.client.railgun.RailgunState;
-import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
-import com.mishkis.orbitalrailgun.network.C2S_RequestFire;
-import com.mishkis.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
+import net.tysontheember.orbitalrailgun.network.Network;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;

@@ -1,7 +1,7 @@
-package com.mishkis.orbitalrailgun.network;
+package net.tysontheember.orbitalrailgun.network;
 
-import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
-import com.mishkis.orbitalrailgun.util.OrbitalRailgunStrikeManager;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.util.OrbitalRailgunStrikeManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
