@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.shaders.AbstractUniform;
 import com.mojang.blaze3d.shaders.Uniform;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -26,6 +27,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ViewportEvent;
@@ -53,6 +55,7 @@ import java.util.Set;
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
     private static final ResourceLocation COMPAT_VIGNETTE_TEX = ForgeOrbitalRailgunMod.id("textures/gui/compat_vignette.png");
+    private static final ResourceLocation COMPAT_OVERLAY_PROGRAM = ForgeOrbitalRailgunMod.id("compat_overlay");
     private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
@@ -65,11 +68,14 @@ public final class ClientEvents {
     private static int chainHeight = -1;
 
     private static boolean compatModeActive;
+    private static boolean compatOverlayEnabled;
     private static boolean hasCompatVignette;
+    private static EffectInstance compatOverlayEffect;
     private static ResourceKey<Level> lastLoggedWorld;
     private static boolean attackWasDown;
 
     private static boolean pendingCompatModeActive;
+    private static boolean pendingCompatOverlayEnabled;
     private static boolean pendingShaderpackActive;
     private static boolean pendingHasCompatVignette;
 
@@ -103,6 +109,7 @@ public final class ClientEvents {
         pendingHasCompatVignette = resourceManager.getResource(COMPAT_VIGNETTE_TEX).isPresent();
         pendingShaderpackActive = OculusCompat.isShaderpackActive();
         pendingCompatModeActive = shouldUseCompat(pendingShaderpackActive);
+        pendingCompatOverlayEnabled = shouldDrawCompatOverlay(pendingShaderpackActive, pendingCompatModeActive);
     }
 
     public static void onReloadApply(ResourceManager resourceManager, ProfilerFiller profiler) {
@@ -111,8 +118,9 @@ public final class ClientEvents {
 
         hasCompatVignette = pendingHasCompatVignette;
         compatModeActive = pendingCompatModeActive;
+        compatOverlayEnabled = pendingCompatOverlayEnabled;
 
-        logShaderpackState("reload", pendingShaderpackActive, compatModeActive);
+        logShaderpackState("reload", pendingShaderpackActive, compatModeActive, compatOverlayEnabled);
 
         if (minecraft.getMainRenderTarget() == null) {
             chainReady = false;
@@ -120,9 +128,15 @@ public final class ClientEvents {
         }
 
         if (compatModeActive) {
+            if (compatOverlayEnabled) {
+                loadCompatOverlay(resourceManager);
+            } else {
+                closeCompatOverlay();
+            }
             return;
         }
 
+        closeCompatOverlay();
         loadChain(minecraft, resourceManager);
     }
 
@@ -152,19 +166,24 @@ public final class ClientEvents {
 
         boolean shaderpackActive = OculusCompat.isShaderpackActive();
         boolean compatActive = shouldUseCompat(shaderpackActive);
-        if (compatActive != compatModeActive) {
+        boolean overlayActive = shouldDrawCompatOverlay(shaderpackActive, compatActive);
+        if (compatActive != compatModeActive || overlayActive != compatOverlayEnabled) {
             compatModeActive = compatActive;
+            compatOverlayEnabled = overlayActive;
             if (compatModeActive) {
                 closeChain();
             } else {
-                ResourceManager resourceManager = minecraft.getResourceManager();
-                loadChain(minecraft, resourceManager);
+                loadChain(minecraft, minecraft.getResourceManager());
             }
-            logShaderpackState("state-change", shaderpackActive, compatActive);
+            if (compatOverlayEnabled) {
+                loadCompatOverlay(minecraft.getResourceManager());
+            } else {
+                closeCompatOverlay();
+            }
+            logShaderpackState("state-change", shaderpackActive, compatActive, overlayActive);
         }
 
         if (compatActive) {
-            drawCompatOverlay(minecraft);
             return;
         }
 
@@ -199,6 +218,22 @@ public final class ClientEvents {
         railgunChain.process(event.getPartialTick());
     }
 
+    static void onGuiOverlayPost(RenderGuiOverlayEvent.Post event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+
+        boolean shaderpackActive = OculusCompat.isShaderpackActive();
+        boolean compatActive = shouldUseCompat(shaderpackActive);
+        if (!shouldDrawCompatOverlay(shaderpackActive, compatActive)) {
+            return;
+        }
+
+        drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight(),
+                (minecraft.level.getGameTime() + event.getPartialTick()) / 20.0F);
+    }
+
     static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
             OculusCompat.tick();
@@ -229,10 +264,7 @@ public final class ClientEvents {
         }
     }
 
-    private static void drawCompatOverlay(Minecraft minecraft) {
-        int width = minecraft.getWindow().getWidth();
-        int height = minecraft.getWindow().getHeight();
-
+    private static void drawCompatOverlay(Minecraft minecraft, int width, int height, float timeSeconds) {
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -240,24 +272,49 @@ public final class ClientEvents {
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder bufferBuilder = tesselator.getBuilder();
 
-        if (hasCompatVignette) {
+        boolean drewWithShader = false;
+        VertexFormat formatUsed;
+        if (compatOverlayEffect != null) {
+            AbstractUniform timeUniform = compatOverlayEffect.safeGetUniform("uTime");
+            if (timeUniform != null) {
+                timeUniform.set(timeSeconds);
+            }
+            AbstractUniform intensityUniform = compatOverlayEffect.safeGetUniform("uIntensity");
+            if (intensityUniform != null) {
+                intensityUniform.set(1.0F);
+            }
+            compatOverlayEffect.apply();
+            formatUsed = DefaultVertexFormat.POSITION_TEX;
+            bufferBuilder.begin(VertexFormat.Mode.QUADS, formatUsed);
+            drewWithShader = true;
+        } else if (hasCompatVignette) {
             RenderSystem.setShader(GameRenderer::getPositionTexShader);
             RenderSystem.setShaderTexture(0, COMPAT_VIGNETTE_TEX);
-            bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX);
-            bufferBuilder.vertex(0.0D, height, 0.0D).uv(0.0F, 1.0F).endVertex();
-            bufferBuilder.vertex(0.0D, 0.0D, 0.0D).uv(0.0F, 0.0F).endVertex();
-            bufferBuilder.vertex(width, 0.0D, 0.0D).uv(1.0F, 0.0F).endVertex();
-            bufferBuilder.vertex(width, height, 0.0D).uv(1.0F, 1.0F).endVertex();
+            formatUsed = DefaultVertexFormat.POSITION_TEX;
+            bufferBuilder.begin(VertexFormat.Mode.QUADS, formatUsed);
         } else {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
-            bufferBuilder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+            formatUsed = DefaultVertexFormat.POSITION_COLOR;
+            bufferBuilder.begin(VertexFormat.Mode.QUADS, formatUsed);
+        }
+
+        if (formatUsed == DefaultVertexFormat.POSITION_COLOR) {
             bufferBuilder.vertex(0.0D, height, 0.0D).color(0, 0, 0, 90).endVertex();
             bufferBuilder.vertex(0.0D, 0.0D, 0.0D).color(0, 0, 0, 90).endVertex();
             bufferBuilder.vertex(width, 0.0D, 0.0D).color(0, 0, 0, 90).endVertex();
             bufferBuilder.vertex(width, height, 0.0D).color(0, 0, 0, 90).endVertex();
+        } else {
+            bufferBuilder.vertex(0.0D, height, 0.0D).uv(0.0F, 1.0F).endVertex();
+            bufferBuilder.vertex(0.0D, 0.0D, 0.0D).uv(0.0F, 0.0F).endVertex();
+            bufferBuilder.vertex(width, 0.0D, 0.0D).uv(1.0F, 0.0F).endVertex();
+            bufferBuilder.vertex(width, height, 0.0D).uv(1.0F, 1.0F).endVertex();
         }
 
         tesselator.end();
+
+        if (drewWithShader && compatOverlayEffect != null) {
+            compatOverlayEffect.clear();
+        }
 
         RenderSystem.disableBlend();
         RenderSystem.enableDepthTest();
@@ -278,7 +335,9 @@ public final class ClientEvents {
         }
         boolean shaderpackActive = OculusCompat.isShaderpackActive();
         boolean compatActive = shouldUseCompat(shaderpackActive);
-        ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active: {} | compat mode: {} (world: {})", shaderpackActive, compatActive, worldKey.location());
+        boolean overlayActive = shouldDrawCompatOverlay(shaderpackActive, compatActive);
+        ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active: {} | compat mode: {} | GUI overlay: {} (world: {})",
+                shaderpackActive, compatActive, overlayActive, worldKey.location());
         lastLoggedWorld = worldKey;
     }
 
@@ -447,6 +506,13 @@ public final class ClientEvents {
         chainHeight = -1;
     }
 
+    private static void closeCompatOverlay() {
+        if (compatOverlayEffect != null) {
+            compatOverlayEffect.close();
+            compatOverlayEffect = null;
+        }
+    }
+
     private static void loadChain(Minecraft minecraft, ResourceManager resourceManager) {
         closeChain();
         if (minecraft.getMainRenderTarget() == null) {
@@ -464,6 +530,16 @@ public final class ClientEvents {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
             chainReady = false;
             closeChain();
+        }
+    }
+
+    private static void loadCompatOverlay(ResourceManager resourceManager) {
+        closeCompatOverlay();
+        try {
+            compatOverlayEffect = new EffectInstance(resourceManager, COMPAT_OVERLAY_PROGRAM.toString());
+        } catch (IOException | RuntimeException exception) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun compat overlay shader", exception);
+            compatOverlayEffect = null;
         }
     }
 
@@ -495,11 +571,22 @@ public final class ClientEvents {
         return !ClientConfig.COMPAT_FORCE_VANILLA_POSTCHAIN.get();
     }
 
-    private static void logShaderpackState(String context, boolean shaderpackActive, boolean compatActive) {
+    private static boolean shouldDrawCompatOverlay(boolean shaderpackActive, boolean compatActive) {
+        if (!shaderpackActive) {
+            return false;
+        }
+        if (!ClientConfig.COMPAT_OVERLAY_WITH_SHADERPACK.get()) {
+            return false;
+        }
+        return compatActive;
+    }
+
+    private static void logShaderpackState(String context, boolean shaderpackActive, boolean compatActive, boolean overlayActive) {
         if (!ClientConfig.COMPAT_LOG_IRIS_STATE.get()) {
             return;
         }
-        ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active: {} | compat mode: {} ({})", shaderpackActive, compatActive, context);
+        ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active: {} | compat mode: {} | GUI overlay: {} ({})",
+                shaderpackActive, compatActive, overlayActive, context);
     }
 
     @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
@@ -514,6 +601,11 @@ public final class ClientEvents {
         @SubscribeEvent
         public static void onRenderStage(RenderLevelStageEvent event) {
             ClientEvents.onRenderStage(event);
+        }
+
+        @SubscribeEvent
+        public static void onGuiOverlayPost(RenderGuiOverlayEvent.Post event) {
+            ClientEvents.onGuiOverlayPost(event);
         }
 
         @SubscribeEvent
