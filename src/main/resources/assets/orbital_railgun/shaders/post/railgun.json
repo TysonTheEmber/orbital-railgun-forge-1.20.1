@@ -9,7 +9,7 @@
       "intarget": "minecraft:main",
       "outtarget": "swap",
       "auxtargets": [
-        { "name": "DepthSampler", "id": "minecraft:main_depth" }
+        { "name": "DepthSampler", "id": "minecraft:main:depth" }
       ]
     },
     {
@@ -22,7 +22,7 @@
       "intarget": "composite",
       "outtarget": "minecraft:main",
       "auxtargets": [
-        { "name": "DepthSampler", "id": "minecraft:main_depth" }
+        { "name": "DepthSampler", "id": "minecraft:main:depth" }
       ]
     }
   ]
