@@ -7,6 +7,8 @@ uniform vec3 BlockPosition;
 
 uniform float iTime;
 uniform float StrikeActive;
+uniform float SelectionActive;
+uniform float IsBlockHit;
 
 in vec2 texCoord;
 in float viewHeight;
@@ -22,7 +24,7 @@ void main() {
     float frameTimeCounter = max(iTime - 37., 0.);
 
     vec3 original = texture(DiffuseSampler, texCoord).rgb;
-    if (StrikeActive < 0.5) {
+    if (StrikeActive < 0.5 && SelectionActive < 0.5) {
         fragColor = vec4(original, 1.0);
         return;
     }
