@@ -37,12 +37,17 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 @OnlyIn(Dist.CLIENT)
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
     private static final Field PASSES_FIELD = ObfuscationReflectionHelper.findField(PostChain.class, "passes");
+    private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
+            ForgeOrbitalRailgunMod.id("strike"),
+            ForgeOrbitalRailgunMod.id("gui")
+    );
 
     private static PostChain railgunChain;
     private static boolean chainReady;
@@ -220,8 +225,13 @@ public final class ClientEvents {
                 continue;
             }
 
+            ResourceLocation passName = getPassName(pass);
+            boolean expectsModelViewMatrix = passName != null && MODEL_VIEW_UNIFORM_PASSES.contains(passName);
+
             setMatrix(effect, "ProjMat", projection);
-            setMatrix(effect, "ModelViewMat", modelView);
+            if (expectsModelViewMatrix) {
+                setMatrix(effect, "ModelViewMat", modelView);
+            }
             setMatrix(effect, "InverseTransformMatrix", inverseProjection);
             setVec3(effect, "CameraPosition", cameraPos);
             setVec3(effect, "BlockPosition", targetPos);
@@ -234,6 +244,11 @@ public final class ClientEvents {
             setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
             setInt(effect, "HitKind", state.getHitKind().ordinal());
         }
+    }
+
+    private static ResourceLocation getPassName(PostPass pass) {
+        String name = pass.getName();
+        return name != null ? ResourceLocation.tryParse(name) : null;
     }
 
     @SuppressWarnings("unchecked")
