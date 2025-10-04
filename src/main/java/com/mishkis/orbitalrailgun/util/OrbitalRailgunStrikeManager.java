@@ -14,6 +14,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
@@ -93,6 +94,9 @@ public final class OrbitalRailgunStrikeManager {
         Vec3 center = Vec3.atCenterOf(strike.key.pos());
         for (Entity entity : strike.entities) {
             if (entity == null || !entity.isAlive() || entity.level() != level) {
+                continue;
+            }
+            if (entity instanceof Player player && player.isSpectator()) {
                 continue;
             }
             Vec3 direction = center.subtract(entity.position());
