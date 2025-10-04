@@ -230,8 +230,8 @@ public final class ClientEvents {
             return;
         }
 
-        float width = renderTarget.viewWidth > 0 ? renderTarget.viewWidth : renderTarget.width;
-        float height = renderTarget.viewHeight > 0 ? renderTarget.viewHeight : renderTarget.height;
+        float width = renderTarget.width > 0 ? renderTarget.width : renderTarget.viewWidth;
+        float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
