@@ -11,6 +11,7 @@ uniform vec3 CameraPosition;
 uniform vec3 BlockPosition;
 
 uniform float iTime;
+uniform float StrikeActive;
 
 const vec3 blue = vec3(0.62, 0.93, 0.93);
 
@@ -120,6 +121,10 @@ float sdBox(vec2 p, vec2 s) {
 
 void main() {
     vec3 original = texture(DiffuseSampler, texCoord).rgb;
+    if (StrikeActive < 0.5) {
+        fragColor = vec4(original, 1.0);
+        return;
+    }
     localTime = iTime - startTime * step(startTime, iTime) - expansionTime * step(endTime, iTime);
 
     float depth = texture(DepthSampler, texCoord).r;

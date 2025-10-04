@@ -17,6 +17,7 @@
 
     { "name": "CameraPosition",       "type": "float",     "count": 3,  "values": [ 0.0, 0.0, 0.0 ] },
     { "name": "BlockPosition",       "type": "float",     "count": 3,  "values": [ 0.0, 0.0, 0.0 ] },
-    { "name": "iTime",       "type": "float",     "count": 1,  "values": [ 0.0 ] }
+    { "name": "iTime",       "type": "float",     "count": 1,  "values": [ 0.0 ] },
+    { "name": "StrikeActive",       "type": "float",     "count": 1,  "values": [ 0.0 ] }
   ]
 }
