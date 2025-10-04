@@ -154,8 +154,6 @@ void main() {
 
     threshold *= 1. - pow(clamp(iTime / endTime - 1., 0., 1.), 2.);
     vec3 shockwave_color = mix(blue, vec3(1.), clamp(iTime / endTime - 1., 0., 1.));
-    float shock = shockwave(hit_point);
-    vec3 tinted = mix(original, original * shock * shockwave_color, threshold);
 
-    fragColor = vec4(mix(tinted, vec3(col), threshold), 1.);
+    fragColor = vec4(mix(original * shockwave(end_point) * shockwave_color, vec3(col), threshold), 1.);
 }
