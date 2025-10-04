@@ -1,9 +1,9 @@
-package com.mishkis.orbitalrailgun.util;
+package net.tysontheember.orbitalrailgun.util;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
-import com.mishkis.orbitalrailgun.config.OrbitalRailgunConfig;
-import com.mishkis.orbitalrailgun.network.Network;
-import com.mishkis.orbitalrailgun.network.S2C_PlayStrikeEffects;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
+import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.network.S2C_PlayStrikeEffects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;

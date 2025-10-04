@@ -1,4 +1,4 @@
-package com.mishkis.orbitalrailgun.config;
+package net.tysontheember.orbitalrailgun.config;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 import org.apache.commons.lang3.tuple.Pair;

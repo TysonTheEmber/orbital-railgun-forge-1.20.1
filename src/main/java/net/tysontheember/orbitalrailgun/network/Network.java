@@ -1,6 +1,6 @@
-package com.mishkis.orbitalrailgun.network;
+package net.tysontheember.orbitalrailgun.network;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;

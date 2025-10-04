@@ -1,7 +1,7 @@
-package com.mishkis.orbitalrailgun.client.railgun;
+package net.tysontheember.orbitalrailgun.client.railgun;
 
-import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
-import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;

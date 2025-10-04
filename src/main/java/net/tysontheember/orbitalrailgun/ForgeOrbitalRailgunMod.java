@@ -1,9 +1,9 @@
-package com.mishkis.orbitalrailgun;
+package net.tysontheember.orbitalrailgun;
 
-import com.mishkis.orbitalrailgun.config.OrbitalRailgunConfig;
-import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
-import com.mishkis.orbitalrailgun.network.Network;
-import com.mishkis.orbitalrailgun.util.OrbitalRailgunStrikeManager;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.util.OrbitalRailgunStrikeManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;

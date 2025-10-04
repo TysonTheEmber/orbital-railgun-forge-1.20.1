@@ -1,6 +1,6 @@
-package com.mishkis.orbitalrailgun.item;
+package net.tysontheember.orbitalrailgun.item;
 
-import com.mishkis.orbitalrailgun.client.item.OrbitalRailgunRenderer;
+import net.tysontheember.orbitalrailgun.client.item.OrbitalRailgunRenderer;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;

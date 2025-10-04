@@ -1,6 +1,6 @@
-package com.mishkis.orbitalrailgun.network;
+package net.tysontheember.orbitalrailgun.network;
 
-import com.mishkis.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
