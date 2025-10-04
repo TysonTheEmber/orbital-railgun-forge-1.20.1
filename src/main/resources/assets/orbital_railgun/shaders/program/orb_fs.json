@@ -1,0 +1,14 @@
+{
+  "name": "orbital_railgun:orb_fs",
+  "vertex": "orbital_railgun:core/orb_fs",
+  "fragment": "orbital_railgun:core/orb_fs",
+  "samplers": [
+    { "name": "SceneColor" },
+    { "name": "SceneDepth" }
+  ],
+  "uniforms": [
+    { "name": "iTime", "type": "float" },
+    { "name": "HitKind", "type": "int" },
+    { "name": "HitPos", "type": "float", "count": 3 }
+  ]
+}

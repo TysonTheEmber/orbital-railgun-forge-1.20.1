@@ -1,17 +1,12 @@
 package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
-import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
-import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
-import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
-import net.tysontheember.orbitalrailgun.network.Network;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.PostPass;
+import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -32,6 +27,13 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.CompatDraw;
+import net.tysontheember.orbitalrailgun.client.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
+import net.tysontheember.orbitalrailgun.network.Network;
 import org.joml.Matrix4f;
 
 import java.io.IOException;
@@ -39,6 +41,7 @@ import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 @OnlyIn(Dist.CLIENT)
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -78,13 +81,20 @@ public final class ClientEvents {
             @Override
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
+                IrisCompat.clearOnReload();
             }
-        });    }
+        });
+    }
 
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
         closeChain();
         if (minecraft.getMainRenderTarget() == null) {
+            chainReady = false;
+            return;
+        }
+
+        if (IrisCompat.isActive()) {
             chainReady = false;
             return;
         }
@@ -130,9 +140,6 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -150,6 +157,19 @@ public final class ClientEvents {
             return;
         }
 
+        Vec3 cameraPos = event.getCamera().getPosition();
+        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
+        boolean irisActive = IrisCompat.isActive();
+
+        if (irisActive) {
+            CompatDraw.render(minecraft.getFrameTime(), state.getHitKind().ordinal(), targetPos);
+            return;
+        }
+
+        if (!chainReady || railgunChain == null) {
+            return;
+        }
+
         resizeChain(minecraft);
 
         float timeSeconds = strikeActive
@@ -159,11 +179,9 @@ public final class ClientEvents {
         Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
         Matrix4f inverseProjection = new Matrix4f(projection).invert();
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
-        Vec3 cameraPos = event.getCamera().getPosition();
 
-        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
         float distance = strikeActive
-                ? (float) cameraPos.distanceTo(state.getStrikePos())
+                ? (float) cameraPos.distanceTo(targetPos)
                 : state.getHitDistance();
         float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
 
@@ -306,39 +324,34 @@ public final class ClientEvents {
         }
     }
 
-    private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
+    private static void setIfPresent(EffectInstance effect, String name, Consumer<Uniform> consumer) {
         Uniform uniform = effect.getUniform(name);
         if (uniform != null) {
-            uniform.set(matrix);
+            consumer.accept(uniform);
         }
+    }
+
+    private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
+        setIfPresent(effect, name, uniform -> uniform.set(matrix));
     }
 
     private static void setVec3(EffectInstance effect, String name, Vec3 vec) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set((float) vec.x, (float) vec.y, (float) vec.z);
+        if (vec == null) {
+            return;
         }
+        setIfPresent(effect, name, uniform -> uniform.set((float) vec.x, (float) vec.y, (float) vec.z));
     }
 
     private static void setVec2(EffectInstance effect, String name, float x, float y) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(x, y);
-        }
+        setIfPresent(effect, name, uniform -> uniform.set(x, y));
     }
 
     private static void setFloat(EffectInstance effect, String name, float value) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(value);
-        }
+        setIfPresent(effect, name, uniform -> uniform.set(value));
     }
 
     private static void setInt(EffectInstance effect, String name, int value) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(value);
-        }
+        setIfPresent(effect, name, uniform -> uniform.set(value));
     }
 
     private static void closeChain() {
