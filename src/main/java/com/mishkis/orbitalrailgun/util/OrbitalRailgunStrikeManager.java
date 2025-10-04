@@ -1,6 +1,7 @@
 package com.mishkis.orbitalrailgun.util;
 
 import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
+import com.mishkis.orbitalrailgun.config.OrbitalRailgunConfig;
 import com.mishkis.orbitalrailgun.network.Network;
 import com.mishkis.orbitalrailgun.network.S2C_PlayStrikeEffects;
 import net.minecraft.core.BlockPos;
@@ -84,7 +85,7 @@ public final class OrbitalRailgunStrikeManager {
                 iterator.remove();
                 damageEntities(level, strike, age);
                 explode(level, strike.key.pos());
-            } else if (age >= 400) {
+            } else if (age >= 400 && OrbitalRailgunConfig.COMMON.suckEntities.get()) {
                 pushEntities(level, strike, age);
             }
         }
@@ -117,12 +118,17 @@ public final class OrbitalRailgunStrikeManager {
             .registryOrThrow(Registries.DAMAGE_TYPE)
             .getHolderOrThrow(STRIKE_DAMAGE);
         DamageSource source = new DamageSource(damageType);
+        double configuredDamage = OrbitalRailgunConfig.COMMON.strikeDamage.get();
+        if (configuredDamage <= 0.0D) {
+            return;
+        }
+        float damage = (float) configuredDamage;
         for (Entity entity : strike.entities) {
             if (entity == null || !entity.isAlive() || entity.level() != level) {
                 continue;
             }
             if (entity.position().distanceToSqr(center) <= RADIUS_SQUARED) {
-                entity.hurt(source, 100000.0F);
+                entity.hurt(source, damage);
             }
         }
     }
@@ -134,6 +140,10 @@ public final class OrbitalRailgunStrikeManager {
                 for (int z = -RADIUS; z <= RADIUS; z++) {
                     if (MASK[x + RADIUS][z + RADIUS]) {
                         mutable.set(center.getX() + x, y, center.getZ() + z);
+                        if (!OrbitalRailgunConfig.COMMON.breakBedrock.get()
+                            && level.getBlockState(mutable).is(Blocks.BEDROCK)) {
+                            continue;
+                        }
                         level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
                     }
                 }

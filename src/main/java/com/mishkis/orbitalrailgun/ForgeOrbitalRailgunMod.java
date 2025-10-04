@@ -1,5 +1,6 @@
 package com.mishkis.orbitalrailgun;
 
+import com.mishkis.orbitalrailgun.config.OrbitalRailgunConfig;
 import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
 import com.mishkis.orbitalrailgun.network.Network;
 import com.mishkis.orbitalrailgun.util.OrbitalRailgunStrikeManager;
@@ -7,9 +8,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -32,6 +35,8 @@ public class ForgeOrbitalRailgunMod {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         ITEMS.register(modBus);
         modBus.addListener(this::onCommonSetup);
+
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalRailgunConfig.COMMON_SPEC);
 
         OrbitalRailgunStrikeManager.register();
     }
