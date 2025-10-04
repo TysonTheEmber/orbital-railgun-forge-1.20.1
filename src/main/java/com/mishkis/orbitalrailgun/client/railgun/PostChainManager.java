@@ -145,7 +145,6 @@ public class PostChainManager implements ResourceManagerReloadListener {
             }
 
             setMatrix(effect, "InverseTransformMatrix", inverse);
-            setMatrix(effect, "ModelViewMat", modelView);
             setVec3(effect, "CameraPosition", cameraPos);
             setVec3(effect, "BlockPosition", blockPos);
             setFloat(effect, "iTime", time);
