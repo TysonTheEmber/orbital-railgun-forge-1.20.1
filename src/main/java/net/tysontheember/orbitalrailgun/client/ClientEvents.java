@@ -1,7 +1,6 @@
 package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.shaders.AbstractUniform;
 import com.mojang.blaze3d.shaders.Uniform;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -18,6 +17,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.ResourceProvider;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.Level;
@@ -55,7 +55,7 @@ import java.util.Set;
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
     private static final ResourceLocation COMPAT_VIGNETTE_TEX = ForgeOrbitalRailgunMod.id("textures/gui/compat_vignette.png");
-    private static final ResourceLocation COMPAT_OVERLAY_PROGRAM = ForgeOrbitalRailgunMod.id("compat_overlay");
+    private static final ResourceLocation COMPAT_OVERLAY_PROGRAM = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.json");
     private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
@@ -71,6 +71,7 @@ public final class ClientEvents {
     private static boolean compatOverlayEnabled;
     private static boolean hasCompatVignette;
     private static EffectInstance compatOverlayEffect;
+    private static long compatOverlayStartMs;
     private static ResourceKey<Level> lastLoggedWorld;
     private static boolean attackWasDown;
 
@@ -172,12 +173,10 @@ public final class ClientEvents {
             compatOverlayEnabled = overlayActive;
             if (compatModeActive) {
                 closeChain();
-            } else {
+            } else if (!chainReady || railgunChain == null) {
                 loadChain(minecraft, minecraft.getResourceManager());
             }
-            if (compatOverlayEnabled) {
-                loadCompatOverlay(minecraft.getResourceManager());
-            } else {
+            if (!compatOverlayEnabled) {
                 closeCompatOverlay();
             }
             logShaderpackState("state-change", shaderpackActive, compatActive, overlayActive);
@@ -230,8 +229,7 @@ public final class ClientEvents {
             return;
         }
 
-        drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight(),
-                (minecraft.level.getGameTime() + event.getPartialTick()) / 20.0F);
+        drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
     }
 
     static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -264,7 +262,7 @@ public final class ClientEvents {
         }
     }
 
-    private static void drawCompatOverlay(Minecraft minecraft, int width, int height, float timeSeconds) {
+    private static void drawCompatOverlay(Minecraft minecraft, int width, int height) {
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -275,11 +273,12 @@ public final class ClientEvents {
         boolean drewWithShader = false;
         VertexFormat formatUsed;
         if (compatOverlayEffect != null) {
-            AbstractUniform timeUniform = compatOverlayEffect.safeGetUniform("uTime");
+            Uniform timeUniform = safeGetUniform(compatOverlayEffect, "uTime");
             if (timeUniform != null) {
-                timeUniform.set(timeSeconds);
+                float elapsedSeconds = (System.currentTimeMillis() - compatOverlayStartMs) / 1000.0F;
+                timeUniform.set(elapsedSeconds);
             }
-            AbstractUniform intensityUniform = compatOverlayEffect.safeGetUniform("uIntensity");
+            Uniform intensityUniform = safeGetUniform(compatOverlayEffect, "uIntensity");
             if (intensityUniform != null) {
                 intensityUniform.set(1.0F);
             }
@@ -510,6 +509,7 @@ public final class ClientEvents {
         if (compatOverlayEffect != null) {
             compatOverlayEffect.close();
             compatOverlayEffect = null;
+            compatOverlayStartMs = 0L;
         }
     }
 
@@ -533,10 +533,16 @@ public final class ClientEvents {
         }
     }
 
-    private static void loadCompatOverlay(ResourceManager resourceManager) {
+    private static void loadCompatOverlay(ResourceProvider resourceProvider) {
         closeCompatOverlay();
         try {
-            compatOverlayEffect = new EffectInstance(resourceManager, COMPAT_OVERLAY_PROGRAM.toString());
+            compatOverlayEffect = new EffectInstance(
+                    Minecraft.getInstance().getTextureManager(),
+                    resourceProvider,
+                    COMPAT_OVERLAY_PROGRAM
+            );
+            compatOverlayStartMs = System.currentTimeMillis();
+            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Loaded compat overlay shader.");
         } catch (IOException | RuntimeException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun compat overlay shader", exception);
             compatOverlayEffect = null;
