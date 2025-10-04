@@ -54,7 +54,7 @@ import java.util.Set;
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
     private static final ResourceLocation COMPAT_VIGNETTE_TEX = ForgeOrbitalRailgunMod.id("textures/gui/compat_vignette.png");
-    private static final ResourceLocation COMPAT_OVERLAY_PROGRAM = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.json");
+    private static final ResourceLocation COMPAT_OVERLAY_PROGRAM = ForgeOrbitalRailgunMod.id("compat_overlay");
     private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
@@ -563,13 +563,17 @@ public final class ClientEvents {
 
     private static void loadCompatOverlay(ResourceManager resourceManager) {
         closeCompatOverlay();
+        ResourceLocation jsonPath = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.json");
+        if (resourceManager.getResource(jsonPath).isEmpty()) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Compat overlay JSON missing at {}", jsonPath);
+        }
         try {
             compatOverlayEffect = new EffectInstance(
                     resourceManager,
                     COMPAT_OVERLAY_PROGRAM.toString()
             );
             compatOverlayStartMs = System.currentTimeMillis();
-            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Loaded compat overlay shader.");
+            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Loaded compat overlay program id: {}", COMPAT_OVERLAY_PROGRAM);
         } catch (IOException | RuntimeException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun compat overlay shader", exception);
             compatOverlayEffect = null;
