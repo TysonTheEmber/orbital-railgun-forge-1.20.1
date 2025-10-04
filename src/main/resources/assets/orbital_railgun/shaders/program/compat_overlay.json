@@ -1,0 +1,68 @@
+{
+  "name": "orbital_railgun:compat_overlay",
+  "vertex": "orbital_railgun:compat_overlay",
+  "fragment": "orbital_railgun:compat_overlay",
+  "samplers": [
+    {
+      "name": "DiffuseSampler"
+    }
+  ],
+  "attributes": [
+    "Position",
+    "UV0"
+  ],
+  "uniforms": [
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4"
+    },
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4"
+    },
+    {
+      "name": "InverseTransformMatrix",
+      "type": "matrix4x4"
+    },
+    {
+      "name": "CameraPosition",
+      "type": "float3"
+    },
+    {
+      "name": "BlockPosition",
+      "type": "float3"
+    },
+    {
+      "name": "HitPos",
+      "type": "float3"
+    },
+    {
+      "name": "OutSize",
+      "type": "float2"
+    },
+    {
+      "name": "iTime",
+      "type": "float"
+    },
+    {
+      "name": "Distance",
+      "type": "float"
+    },
+    {
+      "name": "IsBlockHit",
+      "type": "float"
+    },
+    {
+      "name": "StrikeActive",
+      "type": "float"
+    },
+    {
+      "name": "SelectionActive",
+      "type": "float"
+    },
+    {
+      "name": "HitKind",
+      "type": "int"
+    }
+  ]
+}

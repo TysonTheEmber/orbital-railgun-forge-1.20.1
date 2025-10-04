@@ -1,0 +1,12 @@
+{
+  "targets": [
+    "minecraft:main"
+  ],
+  "passes": [
+    {
+      "name": "orbital_railgun:compat_overlay",
+      "intarget": "minecraft:main",
+      "outtarget": "minecraft:main"
+    }
+  ]
+}
