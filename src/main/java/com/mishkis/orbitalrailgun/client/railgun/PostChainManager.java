@@ -2,7 +2,6 @@ package com.mishkis.orbitalrailgun.client.railgun;
 
 import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
 import com.mojang.blaze3d.shaders.Uniform;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
@@ -13,6 +12,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.joml.Matrix4f;
 import org.slf4j.Logger;
@@ -33,6 +33,11 @@ public class PostChainManager implements ResourceManagerReloadListener {
     private PostChain guiChain;
     private int width = -1;
     private int height = -1;
+
+    private Matrix4f cachedModelViewMatrix;
+    private Matrix4f cachedProjectionMatrix;
+    private Vec3 cachedCameraPosition;
+    private Float cachedPartialTick;
 
     private static final PostChainManager INSTANCE = new PostChainManager();
 
@@ -84,7 +89,10 @@ public class PostChainManager implements ResourceManagerReloadListener {
         }
     }
 
-    public void processWorld(float partialTicks) {
+    public void processWorld(RenderLevelStageEvent event) {
+        cacheCameraPose(event);
+        cachedPartialTick = event.getPartialTick();
+
         if (worldChain == null) {
             return;
         }
@@ -95,11 +103,12 @@ public class PostChainManager implements ResourceManagerReloadListener {
         }
 
         resizeChains();
+        float partialTicks = cachedPartialTick;
         applyUniforms(worldChain, state.getStrikePos(), state.getStrikeSeconds(partialTicks), false);
         worldChain.process(partialTicks);
     }
 
-    public void processGui(float partialTicks) {
+    public void processGui(RenderLevelStageEvent event) {
         if (guiChain == null) {
             return;
         }
@@ -108,9 +117,13 @@ public class PostChainManager implements ResourceManagerReloadListener {
             return;
         }
 
+        if (cachedModelViewMatrix == null || cachedProjectionMatrix == null || cachedCameraPosition == null || cachedPartialTick == null) {
+            return;
+        }
+
         resizeChains();
-        applyUniforms(guiChain, state.getHitPos(), state.getChargeSeconds(partialTicks), true);
-        guiChain.process(partialTicks);
+        applyUniforms(guiChain, state.getHitPos(), state.getChargeSeconds(cachedPartialTick), true);
+        guiChain.process(cachedPartialTick);
     }
 
     @SuppressWarnings("unchecked")
@@ -126,15 +139,25 @@ public class PostChainManager implements ResourceManagerReloadListener {
         }
     }
 
+    private void cacheCameraPose(RenderLevelStageEvent event) {
+        cachedModelViewMatrix = new Matrix4f(event.getPoseStack().last().pose());
+        cachedProjectionMatrix = new Matrix4f(event.getProjectionMatrix());
+        cachedCameraPosition = event.getCamera().getPosition();
+    }
+
     private void applyUniforms(PostChain chain, Vec3 blockPos, float time, boolean guiPass) {
         List<PostPass> passes = getPasses(chain);
         if (passes.isEmpty()) {
             return;
         }
 
-        Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix());
-        Matrix4f inverse = new Matrix4f(RenderSystem.getProjectionMatrix()).invert();
-        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        if (cachedModelViewMatrix == null || cachedProjectionMatrix == null || cachedCameraPosition == null) {
+            return;
+        }
+
+        Matrix4f modelView = new Matrix4f(cachedModelViewMatrix);
+        Matrix4f inverse = new Matrix4f(cachedProjectionMatrix).invert();
+        Vec3 cameraPos = cachedCameraPosition;
         RailgunState state = RailgunState.getInstance();
         float distance = guiPass ? state.getHitDistance() : (float) cameraPos.distanceTo(blockPos);
 
