@@ -126,7 +126,7 @@ public final class PostChainManager {
             return;
         }
 
-        RenderTarget mainTarget = RenderSystem.getMainRenderTarget();
+        RenderTarget mainTarget = minecraft.getMainRenderTarget();
         if (mainTarget == null) {
             return;
         }
@@ -194,7 +194,7 @@ public final class PostChainManager {
 
         if (compatMode) {
             try {
-                compatOverlay = new EffectInstance(COMPAT_OVERLAY_ID);
+                compatOverlay = new EffectInstance(resourceManager, COMPAT_OVERLAY_ID.toString());
                 compatReady = true;
             } catch (IOException exception) {
                 ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun compatibility overlay", exception);
