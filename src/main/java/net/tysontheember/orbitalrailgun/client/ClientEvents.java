@@ -455,18 +455,6 @@ public final class ClientEvents {
                 uTime.set(timeSeconds);
             }
 
-            float phaseSeconds = strikeActive ? state.getStrikeSeconds(partialTick) : state.getChargeSeconds(partialTick);
-            Uniform uPhase = safeGetUniform(compatOverlayEffect, "uPhaseSeconds");
-            if (uPhase != null) {
-                uPhase.set(phaseSeconds);
-            }
-
-            int hitKind = state.getHitKind().ordinal();
-            Uniform uHitKind = safeGetUniform(compatOverlayEffect, "HitKind");
-            if (uHitKind != null) {
-                uHitKind.set(hitKind);
-            }
-
             Uniform uStrike = safeGetUniform(compatOverlayEffect, "StrikeActive");
             if (uStrike != null) {
                 uStrike.set(strikeActive ? 1.0F : 0.0F);
