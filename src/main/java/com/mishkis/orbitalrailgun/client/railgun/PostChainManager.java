@@ -149,7 +149,7 @@ public class PostChainManager implements ResourceManagerReloadListener {
             setVec3(effect, "CameraPosition", cameraPos);
             setVec3(effect, "BlockPosition", blockPos);
             setFloat(effect, "iTime", time);
-            setVec2(effect, "ScreenSize", minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight());
+            setVec2(effect, "OutSize", minecraft.getWindow().getWidth(), minecraft.getWindow().getHeight());
             setFloat(effect, "Distance", distance);
             if (guiPass) {
                 setFloat(effect, "IsBlockHit", state.getHitKind() == RailgunState.HitKind.NONE ? 0.0F : 1.0F);
