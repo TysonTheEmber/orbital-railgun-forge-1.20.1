@@ -1,0 +1,15 @@
+{
+  "blend": { "func": "add", "srcrgb": "srcalpha", "dstrgb": "1-srcalpha" },
+  "vertex":   "orbital_railgun:compat_overlay",
+  "fragment": "orbital_railgun:compat_overlay",
+  "samplers": [],
+  "attributes": ["Position","UV0"],
+  "uniforms": [
+    { "name":"OutSize",         "type":"float", "count":2, "values":[1.0, 1.0] },
+    { "name":"uTime",           "type":"float", "count":1, "values":[0.0] },
+    { "name":"uPhaseSeconds",   "type":"float", "count":1, "values":[0.0] },
+    { "name":"HitKind",         "type":"int",   "count":1, "values":[0]   },
+    { "name":"StrikeActive",    "type":"float", "count":1, "values":[0.0] },
+    { "name":"SelectionActive", "type":"float", "count":1, "values":[0.0] }
+  ]
+}

@@ -7,6 +7,8 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+suggests=["oculus"]
+# Changelog: Add Oculus/Iris compatibility overlay (no PostChain with shaderpacks).
 [[dependencies.${mod_id}]]
 modId="forge"
 mandatory=true
