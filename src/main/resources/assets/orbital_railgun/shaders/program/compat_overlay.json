@@ -1,16 +1,9 @@
 {
-  "blend": {
-    "func": "add",
-    "srcrgb": "srcalpha",
-    "dstrgb": "1-srcalpha"
-  },
+  "blend": { "func": "add", "srcrgb": "srcalpha", "dstrgb": "1-srcalpha" },
   "vertex": "orbital_railgun:shaders/program/compat_overlay.vsh",
   "fragment": "orbital_railgun:shaders/program/compat_overlay.fsh",
   "samplers": [],
-  "attributes": [
-    "Position",
-    "UV0"
-  ],
+  "attributes": ["Position", "UV0"],
   "uniforms": [
     { "name": "OutSize",    "type": "float", "count": 2, "values": [1.0, 1.0] },
     { "name": "uTime",      "type": "float", "count": 1, "values": [0.0] },

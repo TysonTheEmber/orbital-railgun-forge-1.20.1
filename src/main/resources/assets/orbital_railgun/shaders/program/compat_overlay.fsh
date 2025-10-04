@@ -4,10 +4,13 @@ uniform float uTime;
 uniform float uIntensity;
 out vec4 FragColor;
 void main() {
-  // Simple vignette pulse — replace with your effect
+  // vignette pulse
   vec2 uv = vUV * 2.0 - 1.0;
   float r = length(uv);
   float vign = smoothstep(1.15, 0.3, r);
   float pulse = 0.5 + 0.5 * sin(uTime * 2.0);
-  FragColor = vec4(0.0, 0.0, 0.0, (1.0 - vign) * 0.35 * uIntensity * pulse);
+  float alpha = (1.0 - vign) * 0.35 * uIntensity * pulse;
+
+  // TEMP: magenta tint so we can confirm draw; remove once verified
+  FragColor = vec4(1.0, 0.0, 1.0, alpha);
 }
