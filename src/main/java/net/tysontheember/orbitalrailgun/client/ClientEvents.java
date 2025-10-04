@@ -30,12 +30,13 @@ import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.joml.Matrix4f;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -44,7 +45,6 @@ import java.util.Set;
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
-    private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
             ForgeOrbitalRailgunMod.id("gui")
@@ -54,15 +54,11 @@ public final class ClientEvents {
     private static boolean chainReady;
     private static int chainWidth = -1;
     private static int chainHeight = -1;
+    private static List<PassBinding> trackedPasses = Collections.emptyList();
 
     private static boolean attackWasDown;
 
     static {
-        if (PASSES_FIELD != null) {
-            PASSES_FIELD.setAccessible(true);
-        } else {
-            ForgeOrbitalRailgunMod.LOGGER.error("Failed to locate orbital railgun post chain passes field");
-        }
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientEvents::onRegisterReloadListeners);
     }
 
@@ -91,6 +87,11 @@ public final class ClientEvents {
 
         try {
             railgunChain = new PostChain(minecraft.getTextureManager(), resourceManager, minecraft.getMainRenderTarget(), RAILGUN_CHAIN_ID);
+            trackedPasses = PostChainPassTracker.capture(railgunChain);
+            if (trackedPasses.isEmpty()) {
+                handleMissingPasses();
+                return;
+            }
             chainReady = true;
             chainWidth = -1;
             chainHeight = -1;
@@ -219,8 +220,7 @@ public final class ClientEvents {
 
     private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
                                       float distance, float timeSeconds, float isBlockHit, boolean strikeActive, RailgunState state) {
-        List<PostPass> passes = getPasses();
-        if (passes.isEmpty()) {
+        if (trackedPasses.isEmpty()) {
             return;
         }
 
@@ -233,13 +233,9 @@ public final class ClientEvents {
         float width = renderTarget.width > 0 ? renderTarget.width : renderTarget.viewWidth;
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
-        for (PostPass pass : passes) {
-            EffectInstance effect = pass.getEffect();
-            if (effect == null) {
-                continue;
-            }
-
-            ResourceLocation passName = getPassName(pass);
+        for (PassBinding binding : trackedPasses) {
+            EffectInstance effect = binding.effect();
+            ResourceLocation passName = binding.name();
             boolean expectsModelViewMatrix = passName != null && MODEL_VIEW_UNIFORM_PASSES.contains(passName);
 
             setMatrix(effect, "ProjMat", projection);
@@ -257,52 +253,6 @@ public final class ClientEvents {
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
             setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
             setInt(effect, "HitKind", state.getHitKind().ordinal());
-        }
-    }
-
-    private static ResourceLocation getPassName(PostPass pass) {
-        String name = pass.getName();
-        return name != null ? ResourceLocation.tryParse(name) : null;
-    }
-
-    private static List<PostPass> getPasses() {
-        if (railgunChain == null) {
-            return Collections.emptyList();
-        }
-        if (PASSES_FIELD == null) {
-            return Collections.emptyList();
-        }
-        try {
-            Object value = PASSES_FIELD.get(railgunChain);
-            if (value instanceof List<?> list) {
-                @SuppressWarnings("unchecked")
-                List<PostPass> passes = (List<PostPass>) list;
-                return passes;
-            }
-            ForgeOrbitalRailgunMod.LOGGER.error(
-                    "Orbital railgun post chain passes had unexpected type: {}",
-                    value == null ? "null" : value.getClass().getName()
-            );
-        } catch (IllegalAccessException exception) {
-            ForgeOrbitalRailgunMod.LOGGER.error("Failed to access orbital railgun post chain passes", exception);
-            return Collections.emptyList();
-        }
-        return Collections.emptyList();
-    }
-
-    private static Field findPassesField() {
-        try {
-            return ObfuscationReflectionHelper.findField(PostChain.class, "passes");
-        } catch (ObfuscationReflectionHelper.UnableToFindFieldException ignored) {
-            try {
-                return ObfuscationReflectionHelper.findField(PostChain.class, "f_110009_");
-            } catch (ObfuscationReflectionHelper.UnableToFindFieldException exception) {
-                ForgeOrbitalRailgunMod.LOGGER.error(
-                        "Unable to find passes field on PostChain using Mojmap or SRG identifiers",
-                        exception
-                );
-                return null;
-            }
         }
     }
 
@@ -341,6 +291,98 @@ public final class ClientEvents {
         }
     }
 
+    private static void handleMissingPasses() {
+        boolean shaderCompatPresent = isShaderCompatModPresent();
+        if (shaderCompatPresent) {
+            ForgeOrbitalRailgunMod.LOGGER.warn(
+                    "Detected Iris/Oculus shader mod but could not locate orbital railgun post chain passes. Disabling the orbital railgun strike post-processing effect."
+            );
+        } else {
+            ForgeOrbitalRailgunMod.LOGGER.warn(
+                    "Could not locate orbital railgun post chain passes. Disabling the orbital railgun strike post-processing effect."
+            );
+        }
+        closeChain();
+    }
+
+    private static boolean isShaderCompatModPresent() {
+        ModList modList = ModList.get();
+        return modList.isLoaded("oculus") || modList.isLoaded("iris");
+    }
+
+    private static final class PostChainPassTracker {
+        private PostChainPassTracker() {
+        }
+
+        private static List<PassBinding> capture(PostChain chain) {
+            if (chain == null) {
+                return Collections.emptyList();
+            }
+            List<PostPass> passes = locatePasses(chain);
+            if (passes.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<PassBinding> bindings = new ArrayList<>(passes.size());
+            for (PostPass pass : passes) {
+                if (pass == null) {
+                    continue;
+                }
+                EffectInstance effect = pass.getEffect();
+                if (effect == null) {
+                    continue;
+                }
+                String passName = pass.getName();
+                ResourceLocation location = passName != null ? ResourceLocation.tryParse(passName) : null;
+                bindings.add(new PassBinding(location, effect));
+            }
+            return bindings.isEmpty() ? Collections.emptyList() : List.copyOf(bindings);
+        }
+
+        private static List<PostPass> locatePasses(PostChain chain) {
+            Class<?> type = chain.getClass();
+            while (type != null) {
+                Field[] fields = type.getDeclaredFields();
+                for (Field field : fields) {
+                    if (!List.class.isAssignableFrom(field.getType())) {
+                        continue;
+                    }
+                    try {
+                        field.setAccessible(true);
+                        Object value = field.get(chain);
+                        if (!(value instanceof List<?> list)) {
+                            continue;
+                        }
+                        List<PostPass> passes = extractPasses(list);
+                        if (!passes.isEmpty()) {
+                            return passes;
+                        }
+                    } catch (IllegalAccessException ignored) {
+                    }
+                }
+                type = type.getSuperclass();
+            }
+            return Collections.emptyList();
+        }
+
+        private static List<PostPass> extractPasses(List<?> list) {
+            if (list.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<PostPass> passes = new ArrayList<>(list.size());
+            for (Object element : list) {
+                if (!(element instanceof PostPass pass)) {
+                    return Collections.emptyList();
+                }
+                passes.add(pass);
+            }
+            return passes;
+        }
+    }
+
+    private record PassBinding(ResourceLocation name, EffectInstance effect) {
+    }
+
     private static void closeChain() {
         if (railgunChain != null) {
             try {
@@ -352,5 +394,6 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+        trackedPasses = Collections.emptyList();
     }
 }
