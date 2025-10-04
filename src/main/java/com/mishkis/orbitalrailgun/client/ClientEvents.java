@@ -74,9 +74,9 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            PostChainManager.getInstance().processWorld(event.getPartialTick());
+            PostChainManager.getInstance().processWorld(event);
         } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
-            PostChainManager.getInstance().processGui(event.getPartialTick());
+            PostChainManager.getInstance().processGui(event);
         }
     }
 }
