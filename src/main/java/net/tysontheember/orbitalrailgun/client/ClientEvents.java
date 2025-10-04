@@ -9,9 +9,9 @@ import net.tysontheember.orbitalrailgun.network.Network;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.PostPass;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -78,6 +78,7 @@ public final class ClientEvents {
             @Override
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
+                IrisCompat.clearOnReload();
             }
         });    }
 
@@ -133,7 +134,7 @@ public final class ClientEvents {
         if (!chainReady || railgunChain == null) {
             return;
         }
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT) {
             return;
         }
 
@@ -166,6 +167,12 @@ public final class ClientEvents {
                 ? (float) cameraPos.distanceTo(state.getStrikePos())
                 : state.getHitDistance();
         float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
+        int compatHitKind = strikeActive ? RailgunState.HitKind.BLOCK.ordinal() : state.getHitKind().ordinal();
+
+        if (IrisCompat.isActive()) {
+            CompatDraw.render(minecraft.getFrameTime(), compatHitKind, targetPos);
+            return;
+        }
 
         applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
 
@@ -234,7 +241,7 @@ public final class ClientEvents {
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
         for (PostPass pass : passes) {
-            EffectInstance effect = pass.getEffect();
+            ShaderInstance effect = pass.getEffect();
             if (effect == null) {
                 continue;
             }
@@ -306,39 +313,34 @@ public final class ClientEvents {
         }
     }
 
-    private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
+    private static void setIfPresent(ShaderInstance effect, String name, java.util.function.Consumer<Uniform> setter) {
         Uniform uniform = effect.getUniform(name);
         if (uniform != null) {
-            uniform.set(matrix);
+            setter.accept(uniform);
         }
     }
 
-    private static void setVec3(EffectInstance effect, String name, Vec3 vec) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set((float) vec.x, (float) vec.y, (float) vec.z);
-        }
+    private static void setMatrix(ShaderInstance effect, String name, Matrix4f matrix) {
+        setIfPresent(effect, name, uniform -> uniform.set(matrix));
     }
 
-    private static void setVec2(EffectInstance effect, String name, float x, float y) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(x, y);
+    private static void setVec3(ShaderInstance effect, String name, Vec3 vec) {
+        if (vec == null) {
+            return;
         }
+        setIfPresent(effect, name, uniform -> uniform.set((float) vec.x, (float) vec.y, (float) vec.z));
     }
 
-    private static void setFloat(EffectInstance effect, String name, float value) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(value);
-        }
+    private static void setVec2(ShaderInstance effect, String name, float x, float y) {
+        setIfPresent(effect, name, uniform -> uniform.set(x, y));
     }
 
-    private static void setInt(EffectInstance effect, String name, int value) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(value);
-        }
+    private static void setFloat(ShaderInstance effect, String name, float value) {
+        setIfPresent(effect, name, uniform -> uniform.set(value));
+    }
+
+    private static void setInt(ShaderInstance effect, String name, int value) {
+        setIfPresent(effect, name, uniform -> uniform.set(value));
     }
 
     private static void closeChain() {
