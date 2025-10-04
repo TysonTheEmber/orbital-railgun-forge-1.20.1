@@ -1,30 +1,151 @@
 package com.mishkis.orbitalrailgun.client;
 
 import com.mishkis.orbitalrailgun.ForgeOrbitalRailgunMod;
-import com.mishkis.orbitalrailgun.client.railgun.PostChainManager;
 import com.mishkis.orbitalrailgun.client.railgun.RailgunState;
 import com.mishkis.orbitalrailgun.item.OrbitalRailgunItem;
 import com.mishkis.orbitalrailgun.network.C2S_RequestFire;
 import com.mishkis.orbitalrailgun.network.Network;
+import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.EffectInstance;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.client.renderer.PostPass;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import org.joml.Matrix4f;
+
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.List;
 
 @OnlyIn(Dist.CLIENT)
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ClientEvents {
+    private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
+    private static final Field PASSES_FIELD = ObfuscationReflectionHelper.findField(PostChain.class, "passes");
+
+    private static PostChain railgunChain;
+    private static boolean chainReady;
+    private static int chainWidth = -1;
+    private static int chainHeight = -1;
+
     private static boolean attackWasDown;
 
+    static {
+        PASSES_FIELD.setAccessible(true);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientEvents::onRegisterReloadListeners);
+    }
+
     private ClientEvents() {}
+
+    private static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
+        event.registerReloadListener(ClientEvents::reloadChain);
+    }
+
+    private static void reloadChain(ResourceManager resourceManager) {
+        Minecraft minecraft = Minecraft.getInstance();
+        closeChain();
+        if (minecraft.getMainRenderTarget() == null) {
+            chainReady = false;
+            return;
+        }
+
+        try {
+            railgunChain = new PostChain(minecraft.getTextureManager(), resourceManager, minecraft.getMainRenderTarget(), RAILGUN_CHAIN_ID);
+            chainReady = true;
+            chainWidth = -1;
+            chainHeight = -1;
+            resizeChain(minecraft);
+        } catch (IOException exception) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
+            chainReady = false;
+            closeChain();
+        }
+    }
+
+    private static void resizeChain(Minecraft minecraft) {
+        if (railgunChain == null || minecraft.getWindow() == null) {
+            return;
+        }
+        int width = minecraft.getWindow().getWidth();
+        int height = minecraft.getWindow().getHeight();
+        if (width == chainWidth && height == chainHeight) {
+            return;
+        }
+        railgunChain.resize(width, height);
+        chainWidth = width;
+        chainHeight = height;
+    }
+
+    @SubscribeEvent
+    public static void onScreenRender(ScreenEvent.Render.Post event) {
+        if (!chainReady || railgunChain == null) {
+            return;
+        }
+        resizeChain(Minecraft.getInstance());
+    }
+
+    @SubscribeEvent
+    public static void onRenderStage(RenderLevelStageEvent event) {
+        if (!chainReady || railgunChain == null) {
+            return;
+        }
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSPARENTS) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+
+        RailgunState state = RailgunState.getInstance();
+        Level level = minecraft.level;
+        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
+        boolean chargeActive = state.isCharging();
+        if (!strikeActive && !chargeActive) {
+            return;
+        }
+
+        resizeChain(minecraft);
+
+        float timeSeconds = strikeActive
+                ? state.getStrikeSeconds(event.getPartialTick())
+                : state.getChargeSeconds(event.getPartialTick());
+
+        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
+        Matrix4f inverseProjection = new Matrix4f(projection).invert();
+        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
+        Vec3 cameraPos = event.getCamera().getPosition();
+
+        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
+        float distance = strikeActive
+                ? (float) cameraPos.distanceTo(state.getStrikePos())
+                : state.getHitDistance();
+        float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
+
+        applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
+
+        railgunChain.process(event.getPartialTick());
+    }
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -71,12 +192,96 @@ public final class ClientEvents {
         }
     }
 
-    @SubscribeEvent
-    public static void onRenderStage(RenderLevelStageEvent event) {
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            PostChainManager.getInstance().processWorld(event);
-        } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
-            PostChainManager.getInstance().processGui(event);
+    private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
+                                      float distance, float timeSeconds, float isBlockHit, boolean strikeActive, RailgunState state) {
+        List<PostPass> passes = getPasses();
+        if (passes.isEmpty()) {
+            return;
         }
+
+        Minecraft minecraft = Minecraft.getInstance();
+        float width = minecraft.getWindow().getWidth();
+        float height = minecraft.getWindow().getHeight();
+
+        for (PostPass pass : passes) {
+            EffectInstance effect = pass.getEffect();
+            if (effect == null) {
+                continue;
+            }
+
+            setMatrix(effect, "ProjMat", projection);
+            setMatrix(effect, "ModelViewMat", modelView);
+            setMatrix(effect, "InverseTransformMatrix", inverseProjection);
+            setVec3(effect, "CameraPosition", cameraPos);
+            setVec3(effect, "BlockPosition", targetPos);
+            setVec3(effect, "HitPos", targetPos);
+            setVec2(effect, "OutSize", width, height);
+            setFloat(effect, "iTime", timeSeconds);
+            setFloat(effect, "Distance", distance);
+            setFloat(effect, "IsBlockHit", isBlockHit);
+            setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
+            setInt(effect, "HitKind", state.getHitKind().ordinal());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<PostPass> getPasses() {
+        if (railgunChain == null) {
+            return Collections.emptyList();
+        }
+        try {
+            return (List<PostPass>) PASSES_FIELD.get(railgunChain);
+        } catch (IllegalAccessException exception) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Failed to access orbital railgun post chain passes", exception);
+            return Collections.emptyList();
+        }
+    }
+
+    private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
+        Uniform uniform = effect.getUniform(name);
+        if (uniform != null) {
+            uniform.set(matrix);
+        }
+    }
+
+    private static void setVec3(EffectInstance effect, String name, Vec3 vec) {
+        Uniform uniform = effect.getUniform(name);
+        if (uniform != null) {
+            uniform.set((float) vec.x, (float) vec.y, (float) vec.z);
+        }
+    }
+
+    private static void setVec2(EffectInstance effect, String name, float x, float y) {
+        Uniform uniform = effect.getUniform(name);
+        if (uniform != null) {
+            uniform.set(x, y);
+        }
+    }
+
+    private static void setFloat(EffectInstance effect, String name, float value) {
+        Uniform uniform = effect.getUniform(name);
+        if (uniform != null) {
+            uniform.set(value);
+        }
+    }
+
+    private static void setInt(EffectInstance effect, String name, int value) {
+        Uniform uniform = effect.getUniform(name);
+        if (uniform != null) {
+            uniform.set(value);
+        }
+    }
+
+    private static void closeChain() {
+        if (railgunChain != null) {
+            try {
+                railgunChain.close();
+            } catch (Exception ignored) {
+            }
+            railgunChain = null;
+        }
+        chainReady = false;
+        chainWidth = -1;
+        chainHeight = -1;
     }
 }

@@ -6,6 +6,7 @@ uniform vec3 CameraPosition;
 uniform vec3 BlockPosition;
 
 uniform float iTime;
+uniform float StrikeActive;
 
 in vec2 texCoord;
 in float viewHeight;
@@ -21,6 +22,10 @@ void main() {
     float frameTimeCounter = max(iTime - 37., 0.);
 
     vec3 original = texture(DiffuseSampler, texCoord).rgb;
+    if (StrikeActive < 0.5) {
+        fragColor = vec4(original, 1.0);
+        return;
+    }
     vec2 one_pixel = vec2(1. / viewWidth, 1. / viewHeight);
     vec2 rotated_pixel = rotate(one_pixel, -frameTimeCounter);
 
