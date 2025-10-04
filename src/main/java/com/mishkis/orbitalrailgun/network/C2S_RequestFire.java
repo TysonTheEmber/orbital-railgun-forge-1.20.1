@@ -36,9 +36,9 @@ public record C2S_RequestFire(BlockPos target) {
                 return;
             }
 
-            if (!player.isUsingItem()) {
-                return;
-            }
+//            if (!player.isUsingItem()) {
+//                return;
+//            }
 
             railgun.applyCooldown(player);
             OrbitalRailgunStrikeManager.startStrike(player, packet.target);
