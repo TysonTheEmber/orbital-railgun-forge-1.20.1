@@ -1,5 +1,6 @@
 package net.tysontheember.orbitalrailgun;
 
+import net.tysontheember.orbitalrailgun.client.config.ClientConfig;
 import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -10,9 +11,9 @@ import net.minecraft.world.item.Rarity;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -37,6 +38,7 @@ public class ForgeOrbitalRailgunMod {
         modBus.addListener(this::onCommonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalRailgunConfig.COMMON_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
 
         OrbitalRailgunStrikeManager.register();
     }

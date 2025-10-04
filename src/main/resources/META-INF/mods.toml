@@ -6,7 +6,12 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
-description='''${mod_description}'''
+description='''${mod_description}
+
+Changelog:
+- Add Oculus/Iris shaderpack compatibility mode (skip PostChain, depthless overlay).
+'''
+suggests=["oculus"]
 [[dependencies.${mod_id}]]
 modId="forge"
 mandatory=true
