@@ -231,6 +231,7 @@ public final class ClientEvents {
             setFloat(effect, "Distance", distance);
             setFloat(effect, "IsBlockHit", isBlockHit);
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
+            setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
             setInt(effect, "HitKind", state.getHitKind().ordinal());
         }
     }

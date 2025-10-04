@@ -11,6 +11,7 @@ uniform vec3 CameraPosition;
 
 uniform float IsBlockHit;
 uniform vec3 BlockPosition;
+uniform float SelectionActive;
 
 const vec3 red = 2. * vec3(0.878, 0.427, 0.427);
 const vec3 green = 2. * vec3(0.13, 0.65, 0.23);
@@ -61,7 +62,7 @@ vec3 renderUi(vec3 original, float dist) {
     float glitch = 1. + 0.2 * pcg_hash(uint(round((texCoord.x + texCoord.y * viewHeight) * viewWidth) + round(iTime * viewWidth * viewHeight)));
     overlay *= glitch;
 
-    return mix(original, overlay, threshold);
+    return mix(original, overlay, threshold * SelectionActive);
 }
 
 vec2 raycast(vec3 point, vec3 dir) {
