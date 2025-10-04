@@ -38,6 +38,7 @@ public final class RailgunState {
     private boolean strikeActive;
     private int strikeTicks;
     private Vec3 strikePos = Vec3.ZERO;
+    private Vec3 strikeDirection = Vec3.ZERO;
     private ResourceKey<Level> strikeDimension;
 
     private RailgunState() {}
@@ -199,6 +200,7 @@ public final class RailgunState {
         strikeActive = true;
         strikeTicks = 0;
         strikePos = Vec3.atCenterOf(blockPos);
+        strikeDirection = computeStrikeDirection(blockPos);
         strikeDimension = dimension;
     }
 
@@ -208,6 +210,10 @@ public final class RailgunState {
 
     public Vec3 getStrikePos() {
         return strikePos;
+    }
+
+    public Vec3 getStrikeDirection() {
+        return strikeDirection;
     }
 
     public float getStrikeSeconds(float partialTicks) {
@@ -222,6 +228,25 @@ public final class RailgunState {
         strikeActive = false;
         strikeTicks = 0;
         strikePos = Vec3.ZERO;
+        strikeDirection = Vec3.ZERO;
         strikeDimension = null;
+    }
+
+    private Vec3 computeStrikeDirection(BlockPos blockPos) {
+        Vec3 center = Vec3.atCenterOf(blockPos);
+        Minecraft minecraft = Minecraft.getInstance();
+        double anchorY;
+        if (minecraft.level != null) {
+            anchorY = minecraft.level.getMaxBuildHeight() + 16.0D;
+        } else {
+            anchorY = blockPos.getY() + 256.0D;
+        }
+
+        Vec3 anchor = new Vec3(center.x, anchorY, center.z);
+        Vec3 direction = anchor.subtract(center);
+        if (direction.lengthSqr() < 1.0E-6D) {
+            return Vec3.UP;
+        }
+        return direction.normalize();
     }
 }

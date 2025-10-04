@@ -226,6 +226,8 @@ public final class ClientEvents {
             setVec3(effect, "CameraPosition", cameraPos);
             setVec3(effect, "BlockPosition", targetPos);
             setVec3(effect, "HitPos", targetPos);
+            Vec3 strikeDirection = strikeActive ? state.getStrikeDirection() : Vec3.ZERO;
+            setVec3(effect, "StrikeDirection", strikeDirection);
             setVec2(effect, "OutSize", width, height);
             setFloat(effect, "iTime", timeSeconds);
             setFloat(effect, "Distance", distance);

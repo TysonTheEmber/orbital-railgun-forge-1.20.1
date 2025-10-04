@@ -9,6 +9,7 @@ uniform mat4 InverseTransformMatrix;
 uniform mat4 ModelViewMat;
 uniform vec3 CameraPosition;
 uniform vec3 BlockPosition;
+uniform vec3 StrikeDirection;
 
 uniform float iTime;
 uniform float StrikeActive;
@@ -94,6 +95,15 @@ vec3 worldPos(vec3 point) {
     return (inverse(ModelViewMat) * vec4(viewPos, 1.)).xyz + CameraPosition;
 }
 
+vec3 safe_normalize(vec3 v, vec3 fallback) {
+    float len = length(v);
+    return len > 1e-5 ? v / len : fallback;
+}
+
+vec3 orthogonal(vec3 v) {
+    return abs(v.x) > abs(v.z) ? vec3(-v.y, v.x, 0.0) : vec3(0.0, -v.z, v.y);
+}
+
 float shockwave(vec3 point) {
     float dist = sDist(point);
 
@@ -143,14 +153,25 @@ void main() {
     }
 
     vec2 hit_result = raycast(start_point, dir);
-    vec3 hit_point = start_point + dir * hit_result.x;
+    vec3 camera_hit_point = start_point + dir * hit_result.x;
 
-    vec3 col = mix(blue, vec3(0.), abs(sin(3.14 * localTime / expansionTime))) + vec3(smoothstep(5., 10., hit_result.y)) * blue;
+    vec3 strike_axis = safe_normalize(StrikeDirection, vec3(0., 1., 0.));
+    vec3 axis_point = strike_axis * dot(end_point, strike_axis);
+    vec3 radial_offset = end_point - axis_point;
+    float radial_length = length(radial_offset);
+    vec3 radial_dir = radial_length > 1e-5
+        ? radial_offset / radial_length
+        : safe_normalize(orthogonal(strike_axis), vec3(1., 0., 0.));
+    vec3 tear_start = axis_point + radial_dir * 256.0;
+    vec2 tear_result = raycast(tear_start, -radial_dir);
+    vec3 hit_point = tear_start - radial_dir * tear_result.x;
+
+    vec3 col = mix(blue, vec3(0.), abs(sin(3.14 * localTime / expansionTime))) + vec3(smoothstep(5., 10., tear_result.y)) * blue;
 
     float threshold = step(sDist(hit_point), MIN_DIST * 2.);
 
     // cover by blocks
-    threshold *= step(distance(start_point, hit_point), distance(start_point, end_point));
+    threshold *= step(distance(start_point, camera_hit_point), distance(start_point, end_point));
 
     threshold *= 1. - pow(clamp(iTime / endTime - 1., 0., 1.), 2.);
     vec3 shockwave_color = mix(blue, vec3(1.), clamp(iTime / endTime - 1., 0., 1.));
