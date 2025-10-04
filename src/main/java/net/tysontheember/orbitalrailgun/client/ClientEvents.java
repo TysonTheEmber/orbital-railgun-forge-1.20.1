@@ -49,8 +49,11 @@ import java.util.List;
 import java.util.Set;
 
 @OnlyIn(Dist.CLIENT)
-@Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
-@Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(
+        modid = ForgeOrbitalRailgunMod.MOD_ID,
+        bus = Mod.EventBusSubscriber.Bus.MOD,
+        value = Dist.CLIENT
+)
 public final class ClientEvents {
     private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
     private static final ResourceLocation COMPAT_OVERLAY_ID = ForgeOrbitalRailgunMod.id("compat_overlay");
@@ -119,140 +122,149 @@ public final class ClientEvents {
         });
     }
 
-    @SubscribeEvent
-    public static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
-        resizeChain(Minecraft.getInstance());
-    }
+    @Mod.EventBusSubscriber(
+            modid = ForgeOrbitalRailgunMod.MOD_ID,
+            bus = Mod.EventBusSubscriber.Bus.FORGE,
+            value = Dist.CLIENT
+    )
+    public static final class ForgeEventHandlers {
+        private ForgeEventHandlers() {}
 
-    @SubscribeEvent
-    public static void onRenderStage(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
-
-        boolean shaderpack = OculusCompat.isShaderpackActive();
-        boolean compatActive = shouldUseCompat(shaderpack);
-        boolean overlayActive = shouldDrawCompatOverlay(shaderpack, compatActive);
-        if (compatActive != compatModeActive || overlayActive != compatOverlayEnabled) {
-            compatModeActive = compatActive;
-            compatOverlayEnabled = overlayActive;
-            if (compatModeActive) {
-                closeChain();
-                if (compatOverlayEnabled && compatOverlayEffect == null) {
-                    loadCompatOverlay(minecraft.getResourceManager());
-                }
-            } else {
-                closeCompatOverlay();
-                if (!chainReady || railgunChain == null) {
-                    loadChain(minecraft, minecraft.getResourceManager());
-                }
-            }
-            if (!compatOverlayEnabled) {
-                closeCompatOverlay();
-            }
-            if (ClientConfig.COMPAT_LOG_IRIS_STATE.get()) {
-                ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] state-change | compat={} overlay={}", compatModeActive, compatOverlayEnabled);
-            }
-        }
-
-        if (compatModeActive || !chainReady || railgunChain == null) {
-            return;
-        }
-
-        RailgunState state = RailgunState.getInstance();
-        Level level = minecraft.level;
-        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
-        boolean chargeActive = state.isCharging();
-        if (!strikeActive && !chargeActive) {
-            return;
-        }
-
-        resizeChain(minecraft);
-
-        float timeSeconds = strikeActive
-                ? state.getStrikeSeconds(event.getPartialTick())
-                : state.getChargeSeconds(event.getPartialTick());
-
-        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
-        Matrix4f inverseProjection = new Matrix4f(projection).invert();
-        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
-        Vec3 cameraPos = event.getCamera().getPosition();
-
-        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
-        float distance = strikeActive
-                ? (float) cameraPos.distanceTo(state.getStrikePos())
-                : state.getHitDistance();
-        float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
-
-        applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
-
-        railgunChain.process(event.getPartialTick());
-    }
-
-    @SubscribeEvent
-    public static void onGuiOverlayPost(RenderGuiOverlayEvent.Post event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
-
-        boolean shaderpack = OculusCompat.isShaderpackActive();
-        boolean compatActive = shouldUseCompat(shaderpack);
-        if (!shouldDrawCompatOverlay(shaderpack, compatActive)) {
-            return;
-        }
-
-        RailgunState state = RailgunState.getInstance();
-        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(minecraft.level.dimension());
-        boolean chargeActive = state.isCharging();
-        if (!strikeActive && !chargeActive) {
-            return;
-        }
-
-        if (compatOverlayEffect == null) {
-            loadCompatOverlay(minecraft.getResourceManager());
-            if (compatOverlayEffect == null) {
+        @SubscribeEvent
+        public static void onScreenRender(ScreenEvent.Render.Post event) {
+            if (!chainReady || railgunChain == null) {
                 return;
             }
+            resizeChain(Minecraft.getInstance());
         }
 
-        drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight(), state, strikeActive, event.getPartialTick());
-    }
+        @SubscribeEvent
+        public static void onRenderStage(RenderLevelStageEvent event) {
+            if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+                return;
+            }
 
-    @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) {
-            OculusCompat.tick();
-            return;
-        }
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        RailgunState state = RailgunState.getInstance();
-        state.tick(minecraft);
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.level == null) {
+                return;
+            }
 
-        LocalPlayer player = minecraft.player;
-        boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
-        if (attackDown && !attackWasDown && state.canRequestFire(player)) {
-            attemptFire(minecraft, state, player);
-        }
-        attackWasDown = attackDown;
-    }
+            boolean shaderpack = OculusCompat.isShaderpackActive();
+            boolean compatActive = shouldUseCompat(shaderpack);
+            boolean overlayActive = shouldDrawCompatOverlay(shaderpack, compatActive);
+            if (compatActive != compatModeActive || overlayActive != compatOverlayEnabled) {
+                compatModeActive = compatActive;
+                compatOverlayEnabled = overlayActive;
+                if (compatModeActive) {
+                    closeChain();
+                    if (compatOverlayEnabled && compatOverlayEffect == null) {
+                        loadCompatOverlay(minecraft.getResourceManager());
+                    }
+                } else {
+                    closeCompatOverlay();
+                    if (!chainReady || railgunChain == null) {
+                        loadChain(minecraft, minecraft.getResourceManager());
+                    }
+                }
+                if (!compatOverlayEnabled) {
+                    closeCompatOverlay();
+                }
+                if (ClientConfig.COMPAT_LOG_IRIS_STATE.get()) {
+                    ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] state-change | compat={} overlay={}", compatModeActive, compatOverlayEnabled);
+                }
+            }
 
-    @SubscribeEvent
-    public static void onComputeFov(ViewportEvent.ComputeFov event) {
-        if (RailgunState.getInstance().isCharging()) {
-            double baseFov = Minecraft.getInstance().options.fov().get();
-            event.setFOV(baseFov);
+            if (compatModeActive || !chainReady || railgunChain == null) {
+                return;
+            }
+
+            RailgunState state = RailgunState.getInstance();
+            Level level = minecraft.level;
+            boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
+            boolean chargeActive = state.isCharging();
+            if (!strikeActive && !chargeActive) {
+                return;
+            }
+
+            resizeChain(minecraft);
+
+            float timeSeconds = strikeActive
+                    ? state.getStrikeSeconds(event.getPartialTick())
+                    : state.getChargeSeconds(event.getPartialTick());
+
+            Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
+            Matrix4f inverseProjection = new Matrix4f(projection).invert();
+            Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
+            Vec3 cameraPos = event.getCamera().getPosition();
+
+            Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
+            float distance = strikeActive
+                    ? (float) cameraPos.distanceTo(state.getStrikePos())
+                    : state.getHitDistance();
+            float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
+
+            applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
+
+            railgunChain.process(event.getPartialTick());
+        }
+
+        @SubscribeEvent
+        public static void onGuiOverlayPost(RenderGuiOverlayEvent.Post event) {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.level == null) {
+                return;
+            }
+
+            boolean shaderpack = OculusCompat.isShaderpackActive();
+            boolean compatActive = shouldUseCompat(shaderpack);
+            if (!shouldDrawCompatOverlay(shaderpack, compatActive)) {
+                return;
+            }
+
+            RailgunState state = RailgunState.getInstance();
+            boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(minecraft.level.dimension());
+            boolean chargeActive = state.isCharging();
+            if (!strikeActive && !chargeActive) {
+                return;
+            }
+
+            if (compatOverlayEffect == null) {
+                loadCompatOverlay(minecraft.getResourceManager());
+                if (compatOverlayEffect == null) {
+                    return;
+                }
+            }
+
+            drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight(), state, strikeActive, event.getPartialTick());
+        }
+
+        @SubscribeEvent
+        public static void onClientTick(TickEvent.ClientTickEvent event) {
+            if (event.phase == TickEvent.Phase.START) {
+                OculusCompat.tick();
+                return;
+            }
+            if (event.phase != TickEvent.Phase.END) {
+                return;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            RailgunState state = RailgunState.getInstance();
+            state.tick(minecraft);
+
+            LocalPlayer player = minecraft.player;
+            boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
+            if (attackDown && !attackWasDown && state.canRequestFire(player)) {
+                attemptFire(minecraft, state, player);
+            }
+            attackWasDown = attackDown;
+        }
+
+        @SubscribeEvent
+        public static void onComputeFov(ViewportEvent.ComputeFov event) {
+            if (RailgunState.getInstance().isCharging()) {
+                double baseFov = Minecraft.getInstance().options.fov().get();
+                event.setFOV(baseFov);
+            }
         }
     }
 
