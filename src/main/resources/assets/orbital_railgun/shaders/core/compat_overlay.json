@@ -1,0 +1,15 @@
+{
+  "targets": ["screen"],
+  "passes": [
+    {
+      "name": "orbital_railgun:compat_overlay",
+      "intarget": "screen",
+      "outtarget": "screen",
+      "auxtargets": [],
+      "uniforms": [
+        { "name": "uTime", "type": "float", "values": [0.0] },
+        { "name": "uIntensity", "type": "float", "values": [1.0] }
+      ]
+    }
+  ]
+}
