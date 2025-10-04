@@ -109,7 +109,7 @@ public final class RailgunState {
         if (level != null) {
             Vec3 start = player.getEyePosition(1.0F);
             Vec3 direction = player.getViewVector(1.0F);
-            double distance = Math.max(1.0D, level.getWorldBorder().getSize() / 2.0D);
+            double distance = Math.max(1.0D, 100000D);
             Vec3 end = start.add(direction.scale(distance));
             ClipContext context = new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player);
             result = level.clip(context);
