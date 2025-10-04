@@ -238,8 +238,19 @@ public final class ClientEvents {
             return;
         }
 
-        if (compatOverlayEffect == null && drawOverlay) {
+        if (compatOverlayEffect == null) {
             loadCompatOverlay(minecraft.getResourceManager());
+            if (compatOverlayEffect == null) {
+                return;
+            }
+        }
+
+        RailgunState state = RailgunState.getInstance();
+        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null
+                && minecraft.level != null && state.getStrikeDimension().equals(minecraft.level.dimension());
+        boolean chargeActive = state.isCharging();
+        if (!strikeActive && !chargeActive) {
+            return;
         }
 
         drawCompatOverlay(minecraft, event.getWindow().getGuiScaledWidth(), event.getWindow().getGuiScaledHeight());
