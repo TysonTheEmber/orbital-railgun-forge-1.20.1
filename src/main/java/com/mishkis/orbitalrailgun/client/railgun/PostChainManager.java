@@ -133,7 +133,7 @@ public class PostChainManager implements ResourceManagerReloadListener {
         }
 
         Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix());
-        Matrix4f inverse = new Matrix4f(RenderSystem.getProjectionMatrix()).mul(modelView).invert();
+        Matrix4f inverse = new Matrix4f(RenderSystem.getProjectionMatrix()).invert();
         Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
         RailgunState state = RailgunState.getInstance();
         float distance = guiPass ? state.getHitDistance() : (float) cameraPos.distanceTo(blockPos);
