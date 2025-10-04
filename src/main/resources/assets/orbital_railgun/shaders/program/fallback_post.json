@@ -1,0 +1,21 @@
+{
+  "vertex": "orbital_railgun:shaders/program/fallback_post.vsh",
+  "fragment": "orbital_railgun:shaders/program/fallback_post.fsh",
+  "samplers": [
+    { "name": "DiffuseSampler" }
+  ],
+  "uniforms": [
+    {
+      "name": "OutSize",
+      "type": "float",
+      "count": 2,
+      "values": [1.0, 1.0]
+    },
+    {
+      "name": "VignetteStrength",
+      "type": "float",
+      "count": 1,
+      "values": [0.15]
+    }
+  ]
+}

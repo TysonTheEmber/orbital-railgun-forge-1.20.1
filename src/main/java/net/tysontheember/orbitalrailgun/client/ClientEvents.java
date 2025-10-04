@@ -1,11 +1,6 @@
 package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
-import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
-import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
-import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
-import net.tysontheember.orbitalrailgun.network.Network;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -13,6 +8,7 @@ import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.PostPass;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
@@ -32,6 +28,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.compat.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.client.render.FallbackPostRenderer;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunClientConfig;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
+import net.tysontheember.orbitalrailgun.network.Network;
 import org.joml.Matrix4f;
 
 import java.io.IOException;
@@ -39,6 +43,7 @@ import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.Objects;
 
 @OnlyIn(Dist.CLIENT)
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -54,6 +59,17 @@ public final class ClientEvents {
     private static boolean chainReady;
     private static int chainWidth = -1;
     private static int chainHeight = -1;
+
+    private enum RenderMode {
+        VANILLA,
+        FALLBACK,
+        SKIP
+    }
+
+    private static RenderMode renderMode = RenderMode.VANILLA;
+    private static boolean shaderpackDetected;
+    private static boolean pendingShaderpackLog;
+    private static ResourceKey<Level> lastLoggedDimension;
 
     private static boolean attackWasDown;
 
@@ -84,6 +100,26 @@ public final class ClientEvents {
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
         closeChain();
+
+        IrisCompat.invalidateCache();
+        shaderpackDetected = IrisCompat.shaderpackEnabled();
+        pendingShaderpackLog = shaderpackDetected;
+
+        boolean disableWithShaderpack = OrbitalRailgunClientConfig.CLIENT.compatDisableWithShaderpack.get();
+
+        if (shaderpackDetected) {
+            if (disableWithShaderpack) {
+                renderMode = RenderMode.SKIP;
+                return;
+            }
+
+            renderMode = FallbackPostRenderer.reload(resourceManager) ? RenderMode.FALLBACK : RenderMode.SKIP;
+            return;
+        }
+
+        renderMode = RenderMode.VANILLA;
+        FallbackPostRenderer.close();
+
         if (minecraft.getMainRenderTarget() == null) {
             chainReady = false;
             return;
@@ -103,6 +139,9 @@ public final class ClientEvents {
     }
 
     private static void resizeChain(Minecraft minecraft) {
+        if (renderMode != RenderMode.VANILLA) {
+            return;
+        }
         if (railgunChain == null) {
             return;
         }
@@ -122,6 +161,9 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Post event) {
+        if (renderMode != RenderMode.VANILLA) {
+            return;
+        }
         if (!chainReady || railgunChain == null) {
             return;
         }
@@ -130,9 +172,6 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -142,11 +181,34 @@ public final class ClientEvents {
             return;
         }
 
+        logShaderpackDisableIfNeeded();
+
         RailgunState state = RailgunState.getInstance();
         Level level = minecraft.level;
         boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
         if (!strikeActive && !chargeActive) {
+            return;
+        }
+
+        RenderMode mode = renderMode;
+        if (mode == RenderMode.SKIP) {
+            return;
+        }
+
+        RenderTarget mainTarget = minecraft.getMainRenderTarget();
+        if (mainTarget == null) {
+            return;
+        }
+
+        if (mode == RenderMode.FALLBACK) {
+            if (FallbackPostRenderer.isReady()) {
+                FallbackPostRenderer.render(mainTarget);
+            }
+            return;
+        }
+
+        if (!chainReady || railgunChain == null) {
             return;
         }
 
@@ -180,6 +242,13 @@ public final class ClientEvents {
         Minecraft minecraft = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.tick(minecraft);
+
+        Level level = minecraft.level;
+        ResourceKey<Level> dimension = level != null ? level.dimension() : null;
+        if (!Objects.equals(dimension, lastLoggedDimension)) {
+            lastLoggedDimension = dimension;
+            pendingShaderpackLog = shaderpackDetected;
+        }
 
         LocalPlayer player = minecraft.player;
         boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
@@ -215,6 +284,20 @@ public final class ClientEvents {
             double baseFov = Minecraft.getInstance().options.fov().get();
             event.setFOV(baseFov);
         }
+    }
+
+    private static void logShaderpackDisableIfNeeded() {
+        if (!pendingShaderpackLog) {
+            return;
+        }
+        if (!shaderpackDetected) {
+            pendingShaderpackLog = false;
+            return;
+        }
+        if (OrbitalRailgunClientConfig.CLIENT.compatLogIrisState.get()) {
+            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Iris shaderpack detected -> vanilla PostChain disabled");
+        }
+        pendingShaderpackLog = false;
     }
 
     private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
@@ -349,6 +432,7 @@ public final class ClientEvents {
             }
             railgunChain = null;
         }
+        FallbackPostRenderer.close();
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
