@@ -225,8 +225,13 @@ public final class ClientEvents {
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        float width = minecraft.getWindow().getWidth();
-        float height = minecraft.getWindow().getHeight();
+        RenderTarget renderTarget = minecraft.getMainRenderTarget();
+        if (renderTarget == null) {
+            return;
+        }
+
+        float width = renderTarget.viewWidth > 0 ? renderTarget.viewWidth : renderTarget.width;
+        float height = renderTarget.viewHeight > 0 ? renderTarget.viewHeight : renderTarget.height;
 
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
