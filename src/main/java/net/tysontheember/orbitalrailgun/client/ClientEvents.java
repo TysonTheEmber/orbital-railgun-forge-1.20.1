@@ -272,6 +272,10 @@ public final class ClientEvents {
         boolean drewWithShader = false;
         VertexFormat formatUsed;
         if (compatOverlayEffect != null) {
+            Uniform outSizeUniform = safeGetUniform(compatOverlayEffect, "OutSize");
+            if (outSizeUniform != null) {
+                outSizeUniform.set((float) width, (float) height);
+            }
             Uniform timeUniform = safeGetUniform(compatOverlayEffect, "uTime");
             if (timeUniform != null) {
                 float elapsedSeconds = (System.currentTimeMillis() - compatOverlayStartMs) / 1000.0F;
