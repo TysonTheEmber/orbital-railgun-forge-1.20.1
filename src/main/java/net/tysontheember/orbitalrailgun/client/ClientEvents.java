@@ -12,6 +12,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.PostPass;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -78,6 +79,7 @@ public final class ClientEvents {
             @Override
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
+                IrisCompat.clearOnReload();
             }
         });    }
 
@@ -130,9 +132,6 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -150,6 +149,18 @@ public final class ClientEvents {
             return;
         }
 
+        float frameTime = minecraft.getFrameTime();
+        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
+
+        if (IrisCompat.isActive()) {
+            CompatDraw.render(frameTime, state.getHitKind().ordinal(), targetPos);
+            return;
+        }
+
+        if (!chainReady || railgunChain == null) {
+            return;
+        }
+
         resizeChain(minecraft);
 
         float timeSeconds = strikeActive
@@ -161,9 +172,8 @@ public final class ClientEvents {
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
         Vec3 cameraPos = event.getCamera().getPosition();
 
-        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
         float distance = strikeActive
-                ? (float) cameraPos.distanceTo(state.getStrikePos())
+                ? (float) cameraPos.distanceTo(targetPos)
                 : state.getHitDistance();
         float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
 
@@ -307,37 +317,32 @@ public final class ClientEvents {
     }
 
     private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(matrix);
-        }
+        setIfPresent(effect, name, u -> u.set(matrix));
     }
 
     private static void setVec3(EffectInstance effect, String name, Vec3 vec) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set((float) vec.x, (float) vec.y, (float) vec.z);
+        if (vec == null) {
+            return;
         }
+        setIfPresent(effect, name, u -> u.set((float) vec.x, (float) vec.y, (float) vec.z));
     }
 
     private static void setVec2(EffectInstance effect, String name, float x, float y) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(x, y);
-        }
+        setIfPresent(effect, name, u -> u.set(x, y));
     }
 
     private static void setFloat(EffectInstance effect, String name, float value) {
-        Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            uniform.set(value);
-        }
+        setIfPresent(effect, name, u -> u.set(value));
     }
 
     private static void setInt(EffectInstance effect, String name, int value) {
+        setIfPresent(effect, name, u -> u.set(value));
+    }
+
+    private static void setIfPresent(ShaderInstance effect, String name, java.util.function.Consumer<Uniform> consumer) {
         Uniform uniform = effect.getUniform(name);
         if (uniform != null) {
-            uniform.set(value);
+            consumer.accept(uniform);
         }
     }
 
