@@ -17,7 +17,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.server.packs.resources.ResourceProvider;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.level.Level;
@@ -533,13 +532,12 @@ public final class ClientEvents {
         }
     }
 
-    private static void loadCompatOverlay(ResourceProvider resourceProvider) {
+    private static void loadCompatOverlay(ResourceManager resourceManager) {
         closeCompatOverlay();
         try {
             compatOverlayEffect = new EffectInstance(
-                    Minecraft.getInstance().getTextureManager(),
-                    resourceProvider,
-                    COMPAT_OVERLAY_PROGRAM
+                    resourceManager,
+                    COMPAT_OVERLAY_PROGRAM.toString()
             );
             compatOverlayStartMs = System.currentTimeMillis();
             ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Loaded compat overlay shader.");
