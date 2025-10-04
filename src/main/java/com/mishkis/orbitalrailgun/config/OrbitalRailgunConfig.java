@@ -1,0 +1,37 @@
+package com.mishkis.orbitalrailgun.config;
+
+import net.minecraftforge.common.ForgeConfigSpec;
+import org.apache.commons.lang3.tuple.Pair;
+
+public final class OrbitalRailgunConfig {
+    public static final ForgeConfigSpec COMMON_SPEC;
+    public static final Common COMMON;
+
+    static {
+        Pair<Common, ForgeConfigSpec> pair = new ForgeConfigSpec.Builder().configure(Common::new);
+        COMMON_SPEC = pair.getRight();
+        COMMON = pair.getLeft();
+    }
+
+    private OrbitalRailgunConfig() {}
+
+    public static final class Common {
+        public final ForgeConfigSpec.DoubleValue strikeDamage;
+        public final ForgeConfigSpec.BooleanValue breakBedrock;
+        public final ForgeConfigSpec.BooleanValue suckEntities;
+
+        private Common(ForgeConfigSpec.Builder builder) {
+            builder.push("orbital_railgun");
+            strikeDamage = builder
+                .comment("Damage dealt by the orbital strike to entities within its radius.")
+                .defineInRange("strikeDamage", 100000.0D, 0.0D, Double.MAX_VALUE);
+            breakBedrock = builder
+                .comment("Whether the orbital strike breaks bedrock within its blast radius.")
+                .define("breakBedrock", true);
+            suckEntities = builder
+                .comment("Whether entities are pulled towards the strike before detonation.")
+                .define("suckEntities", true);
+            builder.pop();
+        }
+    }
+}
