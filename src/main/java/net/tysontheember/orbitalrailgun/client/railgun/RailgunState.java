@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
@@ -104,19 +103,13 @@ public final class RailgunState {
     }
 
     private void updateHitInformation(Minecraft minecraft, LocalPlayer player) {
-        HitResult result = null;
-        Level level = minecraft.level;
-        if (level != null) {
-            Vec3 start = player.getEyePosition(1.0F);
-            Vec3 direction = player.getViewVector(1.0F);
-            double distance = Math.max(1.0D, level.getWorldBorder().getSize() / 2.0D);
-            Vec3 end = start.add(direction.scale(distance));
-            ClipContext context = new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player);
-            result = level.clip(context);
+        HitResult result = minecraft.hitResult;
+        if (result == null && minecraft.level != null) {
+            result = player.pick(300.0D, 1.0F, false);
         }
 
         currentHit = result;
-        if (result == null) {
+        if (result == null || result.getType() == HitResult.Type.MISS) {
             hitKind = HitKind.NONE;
             hitPos = Vec3.ZERO;
             hitDistance = 0.0F;
@@ -128,13 +121,13 @@ public final class RailgunState {
                 BlockHitResult blockHitResult = (BlockHitResult) result;
                 hitKind = HitKind.BLOCK;
                 hitPos = Vec3.atCenterOf(blockHitResult.getBlockPos());
-                hitDistance = (float) player.position().distanceTo(hitPos);
+                hitDistance = (float) player.getEyePosition(1.0F).distanceTo(hitPos);
             }
             case ENTITY -> {
                 EntityHitResult entityHitResult = (EntityHitResult) result;
                 hitKind = HitKind.ENTITY;
                 hitPos = entityHitResult.getLocation();
-                hitDistance = (float) player.position().distanceTo(hitPos);
+                hitDistance = (float) player.getEyePosition(1.0F).distanceTo(hitPos);
             }
             default -> {
                 hitKind = HitKind.NONE;
