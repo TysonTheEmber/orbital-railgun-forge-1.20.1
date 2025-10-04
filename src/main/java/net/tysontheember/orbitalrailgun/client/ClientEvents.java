@@ -1,5 +1,6 @@
 package net.tysontheember.orbitalrailgun.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
@@ -102,11 +103,15 @@ public final class ClientEvents {
     }
 
     private static void resizeChain(Minecraft minecraft) {
-        if (railgunChain == null || minecraft.getWindow() == null) {
+        if (railgunChain == null) {
             return;
         }
-        int width = minecraft.getWindow().getWidth();
-        int height = minecraft.getWindow().getHeight();
+        RenderTarget mainTarget = minecraft.getMainRenderTarget();
+        if (mainTarget == null) {
+            return;
+        }
+        int width = mainTarget.width;
+        int height = mainTarget.height;
         if (width == chainWidth && height == chainHeight) {
             return;
         }
