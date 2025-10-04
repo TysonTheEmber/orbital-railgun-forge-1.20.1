@@ -1,7 +1,7 @@
 {
   "blend": { "func": "add", "srcrgb": "srcalpha", "dstrgb": "1-srcalpha" },
-  "vertex": "orbital_railgun:shaders/program/compat_overlay.vsh",
-  "fragment": "orbital_railgun:shaders/program/compat_overlay.fsh",
+  "vertex": "orbital_railgun:compat_overlay",
+  "fragment": "orbital_railgun:compat_overlay",
   "samplers": [],
   "attributes": ["Position", "UV0"],
   "uniforms": [

@@ -564,8 +564,16 @@ public final class ClientEvents {
     private static void loadCompatOverlay(ResourceManager resourceManager) {
         closeCompatOverlay();
         ResourceLocation jsonPath = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.json");
+        ResourceLocation vertexPath = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.vsh");
+        ResourceLocation fragmentPath = ForgeOrbitalRailgunMod.id("shaders/program/compat_overlay.fsh");
         if (resourceManager.getResource(jsonPath).isEmpty()) {
             ForgeOrbitalRailgunMod.LOGGER.error("Compat overlay JSON missing at {}", jsonPath);
+        }
+        if (resourceManager.getResource(vertexPath).isEmpty()) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Compat overlay vertex shader missing at {}", vertexPath);
+        }
+        if (resourceManager.getResource(fragmentPath).isEmpty()) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Compat overlay fragment shader missing at {}", fragmentPath);
         }
         try {
             compatOverlayEffect = new EffectInstance(
