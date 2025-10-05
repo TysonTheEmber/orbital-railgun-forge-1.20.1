@@ -7,7 +7,8 @@
       "outtarget": "swap",
       "shader": "orbital_railgun:orb_fs",
       "auxtargets": [
-        { "name": "SceneColor", "id": "minecraft:main" }
+        { "name": "SceneColor", "id": "minecraft:main" },
+        { "name": "SceneDepth", "id": "minecraft:main_depth" }
       ]
     },
     {
@@ -16,7 +17,8 @@
       "outtarget": "minecraft:main",
       "shader": "orbital_railgun:orb_fs",
       "auxtargets": [
-        { "name": "SceneColor", "id": "swap" }
+        { "name": "SceneColor", "id": "swap" },
+        { "name": "SceneDepth", "id": "minecraft:main_depth" }
       ]
     }
   ]

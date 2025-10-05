@@ -20,15 +20,15 @@ public final class CompatDraw {
     private CompatDraw() {}
 
     private static void ensureGeom() {
-        if (FS_TRI != null) {
-            return;
-        }
+        if (FS_TRI != null) return;
+
         FS_TRI = new VertexBuffer(VertexBuffer.Usage.STATIC);
         BufferBuilder builder = Tesselator.getInstance().getBuilder();
         builder.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION);
+        // Big full-screen triangle (no UVs needed; we use gl_FragCoord in the shader)
         builder.vertex(-1, -1, 0).endVertex();
-        builder.vertex(3, -1, 0).endVertex();
-        builder.vertex(-1, 3, 0).endVertex();
+        builder.vertex( 3, -1, 0).endVertex();
+        builder.vertex(-1,  3, 0).endVertex();
         FS_TRI.bind();
         FS_TRI.upload(builder.end());
         VertexBuffer.unbind();
@@ -36,23 +36,19 @@ public final class CompatDraw {
 
     public static void render(float partialTicks, int hitKind, Vec3 hitPos) {
         ensureGeom();
-
         ShaderInstance shader = ClientInit.ORB_FS;
-        if (shader == null) {
-            return;
-        }
+        if (shader == null) return;
 
-        Minecraft minecraft = Minecraft.getInstance();
-        RenderTarget mainTarget = minecraft.getMainRenderTarget();
-        if (mainTarget == null) {
-            return;
-        }
+        Minecraft mc = Minecraft.getInstance();
+        RenderTarget mainTarget = mc.getMainRenderTarget();
+        if (mainTarget == null) return;
 
-        // Bind scene color to unit 0 and depth (if present) to unit 1
+        // Bind the scene color to texture unit 0
         RenderSystem.activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(mainTarget.getColorTextureId());
         shader.setSampler("SceneColor", mainTarget.getColorTextureId());
 
+        // Bind depth if available to unit 1 (shader declares SceneDepth but will work fine if missing)
         int depthId = mainTarget.getDepthTextureId();
         if (depthId != -1) {
             RenderSystem.activeTexture(GL13.GL_TEXTURE1);
@@ -60,53 +56,29 @@ public final class CompatDraw {
             shader.setSampler("SceneDepth", depthId);
         }
 
-        // ---- Uniforms ----
-        // Screen size (OutSize)
-        float width = mainTarget.width > 0 ? mainTarget.width : mainTarget.viewWidth;
-        float height = mainTarget.height > 0 ? mainTarget.height : mainTarget.viewHeight;
-        var outSizeU = shader.getUniform("OutSize");
-        if (outSizeU != null) outSizeU.set(width, height);
-
-        // Inverse projection (InverseTransformMatrix)
-        Matrix4f proj = new Matrix4f(RenderSystem.getProjectionMatrix());
-        Matrix4f invProj = new Matrix4f(proj).invert();
-        var invU = shader.getUniform("InverseTransformMatrix");
-        if (invU != null) invU.set(invProj);
-
-        // CameraPosition
-        var cam = minecraft.gameRenderer.getMainCamera();
-        if (cam != null) {
-            var camU = shader.getUniform("CameraPosition");
-            if (camU != null) {
-                var cp = cam.getPosition();
-                camU.set((float) cp.x, (float) cp.y, (float) cp.z);
-            }
+        // Feed custom uniforms (all optional-safe in GLSL)
+        var uni = shader.getUniform("iTime");
+        if (uni != null && mc.level != null) {
+            uni.set((mc.level.getGameTime() + partialTicks) / 20.0F);
+        }
+        uni = shader.getUniform("HitKind");
+        if (uni != null) {
+            uni.set(hitKind);
+        }
+        uni = shader.getUniform("HitPos");
+        if (uni != null && hitPos != null) {
+            uni.set((float) hitPos.x, (float) hitPos.y, (float) hitPos.z);
         }
 
-        // iTime
-        var timeU = shader.getUniform("iTime");
-        if (timeU != null && minecraft.level != null) {
-            timeU.set((minecraft.level.getGameTime() + partialTicks) / 20.0F);
-        }
-
-        // HitKind
-        var hitKindU = shader.getUniform("HitKind");
-        if (hitKindU != null) hitKindU.set(hitKind);
-
-        // HitPos
-        var hitPosU = shader.getUniform("HitPos");
-        if (hitPosU != null && hitPos != null) {
-            hitPosU.set((float) hitPos.x, (float) hitPos.y, (float) hitPos.z);
-        }
-
-        // Draw full-screen triangle
         RenderSystem.disableDepthTest();
         shader.apply();
+
         FS_TRI.bind();
         DefaultVertexFormat.POSITION.setupBufferState();
         FS_TRI.drawWithShader(new Matrix4f().identity(), RenderSystem.getProjectionMatrix(), shader);
         VertexBuffer.unbind();
         DefaultVertexFormat.POSITION.clearBufferState();
+
         shader.clear();
         RenderSystem.enableDepthTest();
         RenderSystem.activeTexture(GL13.GL_TEXTURE0);
