@@ -2,7 +2,6 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceProvider;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -15,23 +14,33 @@ import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import java.io.IOException;
 
 @OnlyIn(Dist.CLIENT)
-@Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(
+        modid = ForgeOrbitalRailgunMod.MOD_ID,
+        bus = Mod.EventBusSubscriber.Bus.MOD,
+        value = Dist.CLIENT
+)
 public final class ClientInit {
+    // Needed by CompatDraw
     public static ShaderInstance ORB_FS;
 
     private ClientInit() {}
 
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        // Intentionally empty. The Fabric version did not use custom keybinds.
+        // No custom keybinds
     }
 
     @SubscribeEvent
     public static void registerShaders(RegisterShadersEvent event) throws IOException {
         ResourceProvider provider = event.getResourceProvider();
+
+        // Register a core shader instance so CompatDraw can use it directly.
+        // Use POSITION because the fullscreen tri only provides positions.
         event.registerShader(
-                new ShaderInstance(provider, new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, "orb_fs"), DefaultVertexFormat.POSITION),
+                new ShaderInstance(provider, ForgeOrbitalRailgunMod.id("orb_fs"), DefaultVertexFormat.POSITION),
                 shader -> ORB_FS = shader
         );
+
+        // Do NOT bind samplers here; CompatDraw sets them at draw time.
     }
 }

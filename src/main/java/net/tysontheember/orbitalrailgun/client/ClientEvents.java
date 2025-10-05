@@ -4,9 +4,9 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.client.renderer.PostChain;
 import net.minecraft.client.renderer.PostPass;
-import net.minecraft.client.renderer.EffectInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -28,8 +28,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
-import net.tysontheember.orbitalrailgun.client.CompatDraw;
-import net.tysontheember.orbitalrailgun.client.IrisCompat;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
@@ -89,18 +87,25 @@ public final class ClientEvents {
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
         closeChain();
+
         if (minecraft.getMainRenderTarget() == null) {
             chainReady = false;
             return;
         }
 
+        // If Iris/Oculus shader pack is active, skip the PostChain entirely.
         if (IrisCompat.isActive()) {
             chainReady = false;
             return;
         }
 
         try {
-            railgunChain = new PostChain(minecraft.getTextureManager(), resourceManager, minecraft.getMainRenderTarget(), RAILGUN_CHAIN_ID);
+            railgunChain = new PostChain(
+                    minecraft.getTextureManager(),
+                    resourceManager,
+                    minecraft.getMainRenderTarget(),
+                    RAILGUN_CHAIN_ID
+            );
             chainReady = true;
             chainWidth = -1;
             chainHeight = -1;
@@ -113,18 +118,14 @@ public final class ClientEvents {
     }
 
     private static void resizeChain(Minecraft minecraft) {
-        if (railgunChain == null) {
-            return;
-        }
+        if (railgunChain == null) return;
         RenderTarget mainTarget = minecraft.getMainRenderTarget();
-        if (mainTarget == null) {
-            return;
-        }
+        if (mainTarget == null) return;
+
         int width = mainTarget.width;
         int height = mainTarget.height;
-        if (width == chainWidth && height == chainHeight) {
-            return;
-        }
+        if (width == chainWidth && height == chainHeight) return;
+
         railgunChain.resize(width, height);
         chainWidth = width;
         chainHeight = height;
@@ -132,43 +133,36 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
+        if (!chainReady || railgunChain == null) return;
         resizeChain(Minecraft.getInstance());
     }
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
+        if (minecraft.level == null) return;
 
         RailgunState state = RailgunState.getInstance();
         Level level = minecraft.level;
-        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
+        boolean strikeActive = state.isStrikeActive()
+                && state.getStrikeDimension() != null
+                && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
-        if (!strikeActive && !chargeActive) {
-            return;
-        }
+        if (!strikeActive && !chargeActive) return;
 
         Vec3 cameraPos = event.getCamera().getPosition();
         Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
         boolean irisActive = IrisCompat.isActive();
 
         if (irisActive) {
+            // Custom draw path under Iris/Oculus
             CompatDraw.render(minecraft.getFrameTime(), state.getHitKind().ordinal(), targetPos);
             return;
         }
 
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
+        if (!chainReady || railgunChain == null) return;
 
         resizeChain(minecraft);
 
@@ -186,15 +180,13 @@ public final class ClientEvents {
         float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
 
         applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
-
         railgunChain.process(event.getPartialTick());
     }
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
+        if (event.phase != TickEvent.Phase.END) return;
+
         Minecraft minecraft = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.tick(minecraft);
@@ -208,20 +200,14 @@ public final class ClientEvents {
     }
 
     private static void attemptFire(Minecraft minecraft, RailgunState state, LocalPlayer player) {
-        if (minecraft.gameMode == null) {
-            return;
-        }
+        if (minecraft.gameMode == null) return;
         HitResult hitResult = state.getCurrentHit();
-        if (!(hitResult instanceof BlockHitResult blockHitResult)) {
-            return;
-        }
-        BlockPos target = blockHitResult.getBlockPos();
-        OrbitalRailgunItem item = state.getActiveRailgunItem();
-        if (item == null) {
-            return;
-        }
+        if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
 
-        item.applyCooldown(player);
+        BlockPos target = blockHitResult.getBlockPos();
+        if (state.getActiveRailgunItem() == null) return;
+
+        state.getActiveRailgunItem().applyCooldown(player);
         minecraft.gameMode.releaseUsingItem(player);
         state.markFired();
         Network.CHANNEL.sendToServer(new C2S_RequestFire(target));
@@ -235,27 +221,31 @@ public final class ClientEvents {
         }
     }
 
-    private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
-                                      float distance, float timeSeconds, float isBlockHit, boolean strikeActive, RailgunState state) {
+    private static void applyUniforms(
+            Matrix4f modelView,
+            Matrix4f projection,
+            Matrix4f inverseProjection,
+            Vec3 cameraPos,
+            Vec3 targetPos,
+            float distance,
+            float timeSeconds,
+            float isBlockHit,
+            boolean strikeActive,
+            RailgunState state
+    ) {
         List<PostPass> passes = getPasses();
-        if (passes.isEmpty()) {
-            return;
-        }
+        if (passes.isEmpty()) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         RenderTarget renderTarget = minecraft.getMainRenderTarget();
-        if (renderTarget == null) {
-            return;
-        }
+        if (renderTarget == null) return;
 
         float width = renderTarget.width > 0 ? renderTarget.width : renderTarget.viewWidth;
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
-            if (effect == null) {
-                continue;
-            }
+            if (effect == null) continue;
 
             ResourceLocation passName = getPassName(pass);
             boolean expectsModelViewMatrix = passName != null && MODEL_VIEW_UNIFORM_PASSES.contains(passName);
@@ -284,12 +274,7 @@ public final class ClientEvents {
     }
 
     private static List<PostPass> getPasses() {
-        if (railgunChain == null) {
-            return Collections.emptyList();
-        }
-        if (PASSES_FIELD == null) {
-            return Collections.emptyList();
-        }
+        if (railgunChain == null || PASSES_FIELD == null) return Collections.emptyList();
         try {
             Object value = PASSES_FIELD.get(railgunChain);
             if (value instanceof List<?> list) {
@@ -303,7 +288,6 @@ public final class ClientEvents {
             );
         } catch (IllegalAccessException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to access orbital railgun post chain passes", exception);
-            return Collections.emptyList();
         }
         return Collections.emptyList();
     }
@@ -326,9 +310,7 @@ public final class ClientEvents {
 
     private static void setIfPresent(EffectInstance effect, String name, Consumer<Uniform> consumer) {
         Uniform uniform = effect.getUniform(name);
-        if (uniform != null) {
-            consumer.accept(uniform);
-        }
+        if (uniform != null) consumer.accept(uniform);
     }
 
     private static void setMatrix(EffectInstance effect, String name, Matrix4f matrix) {
@@ -336,30 +318,25 @@ public final class ClientEvents {
     }
 
     private static void setVec3(EffectInstance effect, String name, Vec3 vec) {
-        if (vec == null) {
-            return;
-        }
-        setIfPresent(effect, name, uniform -> uniform.set((float) vec.x, (float) vec.y, (float) vec.z));
+        if (vec == null) return;
+        setIfPresent(effect, name, u -> u.set((float) vec.x, (float) vec.y, (float) vec.z));
     }
 
     private static void setVec2(EffectInstance effect, String name, float x, float y) {
-        setIfPresent(effect, name, uniform -> uniform.set(x, y));
+        setIfPresent(effect, name, u -> u.set(x, y));
     }
 
     private static void setFloat(EffectInstance effect, String name, float value) {
-        setIfPresent(effect, name, uniform -> uniform.set(value));
+        setIfPresent(effect, name, u -> u.set(value));
     }
 
     private static void setInt(EffectInstance effect, String name, int value) {
-        setIfPresent(effect, name, uniform -> uniform.set(value));
+        setIfPresent(effect, name, u -> u.set(value));
     }
 
     private static void closeChain() {
         if (railgunChain != null) {
-            try {
-                railgunChain.close();
-            } catch (Exception ignored) {
-            }
+            try { railgunChain.close(); } catch (Exception ignored) {}
             railgunChain = null;
         }
         chainReady = false;

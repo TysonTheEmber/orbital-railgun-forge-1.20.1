@@ -1,5 +1,6 @@
 {
   "name": "orbital_railgun:orb_fs",
+  "vertex": "orbital_railgun:orb_fs",
   "fragment": "orbital_railgun:orb_fs",
   "samplers": [
     { "name": "SceneColor" },

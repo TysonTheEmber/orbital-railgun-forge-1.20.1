@@ -1,28 +1,22 @@
 {
-  "targets": [
-    "swap",
-    "composite"
-  ],
+  "targets": ["swap"],
   "passes": [
     {
       "name": "orbital_railgun:strike",
       "intarget": "minecraft:main",
       "outtarget": "swap",
+      "shader": "orbital_railgun:orb_fs",
       "auxtargets": [
-        { "name": "DepthSampler", "id": "minecraft:main:depth" }
+        { "name": "SceneColor", "id": "minecraft:main" }
       ]
     },
     {
-      "name": "orbital_railgun:chromatic_abjuration",
-      "intarget": "swap",
-      "outtarget": "composite"
-    },
-    {
       "name": "orbital_railgun:gui",
-      "intarget": "composite",
+      "intarget": "swap",
       "outtarget": "minecraft:main",
+      "shader": "orbital_railgun:orb_fs",
       "auxtargets": [
-        { "name": "DepthSampler", "id": "minecraft:main:depth" }
+        { "name": "SceneColor", "id": "swap" }
       ]
     }
   ]
