@@ -1,5 +1,6 @@
 package net.tysontheember.orbitalrailgun;
 
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunClientConfig;
 import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -37,6 +38,7 @@ public class ForgeOrbitalRailgunMod {
         modBus.addListener(this::onCommonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalRailgunConfig.COMMON_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, OrbitalRailgunClientConfig.CLIENT_SPEC);
 
         OrbitalRailgunStrikeManager.register();
     }

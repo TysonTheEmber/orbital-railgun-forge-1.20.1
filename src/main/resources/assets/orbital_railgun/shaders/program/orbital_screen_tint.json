@@ -1,0 +1,21 @@
+{
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha"
+  },
+  "vertex": "orbital_railgun:orbital_screen_tint",
+  "fragment": "orbital_railgun:orbital_screen_tint",
+  "attributes": [ "Position" ],
+  "samplers": [ ],
+  "uniforms": [
+    { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Flash01", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "HitKind", "type": "int", "count": 1, "values": [ 0 ] },
+    { "name": "HitPos", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+    { "name": "Distance", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "EffectPos", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+    { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] },
+    { "name": "HasGrab", "type": "int", "count": 1, "values": [ 0 ] }
+  ]
+}

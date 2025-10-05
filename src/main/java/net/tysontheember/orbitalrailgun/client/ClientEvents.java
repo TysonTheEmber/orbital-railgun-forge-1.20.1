@@ -2,7 +2,10 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.fx.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.fx.RailgunFxRenderer;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunClientConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -79,7 +82,9 @@ public final class ClientEvents {
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
             }
-        });    }
+        });
+        event.registerReloadListener(RailgunFxRenderer.createReloadListener());
+    }
 
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -122,7 +127,7 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (!chainReady || railgunChain == null) {
+        if (!shouldUsePostChain()) {
             return;
         }
         resizeChain(Minecraft.getInstance());
@@ -130,9 +135,6 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -147,6 +149,20 @@ public final class ClientEvents {
         boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
         if (!strikeActive && !chargeActive) {
+            return;
+        }
+
+        boolean irisActive = IrisCompat.isShaderpackActive();
+        boolean allowPostChain = OrbitalRailgunClientConfig.CLIENT.allowVanillaPostChain.get();
+        boolean useCustomRenderer = irisActive || OrbitalRailgunClientConfig.CLIENT.useWorldspaceAndHUD.get() || !allowPostChain;
+
+        if (useCustomRenderer) {
+            RailgunFxRenderer.renderBeams(event, state, event.getPartialTick());
+            RailgunFxRenderer.renderScreenFx(event, state, event.getPartialTick());
+            return;
+        }
+
+        if (!shouldUsePostChain()) {
             return;
         }
 
@@ -352,5 +368,15 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+    }
+
+    private static boolean shouldUsePostChain() {
+        if (!chainReady || railgunChain == null) {
+            return false;
+        }
+        if (!OrbitalRailgunClientConfig.CLIENT.allowVanillaPostChain.get()) {
+            return false;
+        }
+        return !IrisCompat.isShaderpackActive();
     }
 }

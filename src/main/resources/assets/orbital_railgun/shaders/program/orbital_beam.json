@@ -1,0 +1,21 @@
+{
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha"
+  },
+  "vertex": "orbital_railgun:orbital_beam",
+  "fragment": "orbital_railgun:orbital_beam",
+  "attributes": [ "Position" ],
+  "samplers": [ ],
+  "uniforms": [
+    { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+    { "name": "Time", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Flash01", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "HitKind", "type": "int", "count": 1, "values": [ 0 ] },
+    { "name": "HitPos", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
+    { "name": "Distance", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "EffectPos", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] }
+  ]
+}
