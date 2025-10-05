@@ -1,0 +1,4 @@
+[compat]
+useWorldspaceAndHUD = true
+allowVanillaPostChain = false
+logIrisState = true

@@ -2,6 +2,8 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.fx.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.fx.RailgunFxRenderer;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
@@ -167,9 +169,13 @@ public final class ClientEvents {
                 : state.getHitDistance();
         float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
 
-        applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
-
-        railgunChain.process(event.getPartialTick());
+        if (IrisCompat.isShaderpackActive()) {
+            RailgunFxRenderer.renderBeams(event, state);
+            RailgunFxRenderer.renderScreenFx(event, state, event.getPartialTick());
+        } else {
+            applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
+            railgunChain.process(event.getPartialTick());
+        }
     }
 
     @SubscribeEvent
