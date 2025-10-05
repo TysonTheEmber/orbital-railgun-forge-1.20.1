@@ -12,11 +12,15 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import org.joml.Matrix4f;
+import org.jetbrains.annotations.Nullable;
 
 public final class RailgunFxRenderer {
     public static ShaderInstance SCREEN_DISTORT;
@@ -27,7 +31,7 @@ public final class RailgunFxRenderer {
     }
 
     public static void renderBeams(RenderLevelStageEvent event, RailgunState state) {
-        if (BEAM == null) {
+        if (SCREEN_DISTORT == null || SCREEN_TINT == null || BEAM == null) {
             return;
         }
 
@@ -172,5 +176,19 @@ public final class RailgunFxRenderer {
 
     public static boolean hasShaders() {
         return SCREEN_DISTORT != null && SCREEN_TINT != null && BEAM != null;
+    }
+
+    public static SimplePreparableReloadListener<Void> createReloadListener() {
+        return new SimplePreparableReloadListener<>() {
+            @Override
+            protected @Nullable Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
+                return null;
+            }
+
+            @Override
+            protected void apply(@Nullable Void prepped, ResourceManager resourceManager, ProfilerFiller profiler) {
+                // no-op: shaders are registered via RegisterShadersEvent
+            }
+        };
     }
 }
