@@ -158,6 +158,11 @@ tasks.named('jar', Jar).configure {
         ])
     }
 
+    from('shaderpacks') {
+        include 'OrbitalRailgun-Addon.zip'
+        into 'shaderpacks'
+    }
+
     // This is the preferred method to reobfuscate your jar file
     finalizedBy 'reobfJar'
 }

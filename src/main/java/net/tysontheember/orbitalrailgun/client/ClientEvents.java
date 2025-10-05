@@ -2,10 +2,13 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.compat.IrisDetector;
+import net.tysontheember.orbitalrailgun.client.compat.ShaderPackAddonDetector;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.config.ClientConfig;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -78,6 +81,8 @@ public final class ClientEvents {
             @Override
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
+                IrisDetector.invalidate();
+                ShaderPackAddonDetector.invalidate();
             }
         });    }
 
@@ -151,6 +156,10 @@ public final class ClientEvents {
         }
 
         resizeChain(minecraft);
+
+        if (IrisDetector.isShaderPackEnabled() && !ClientConfig.COMPAT_FORCE_VANILLA_POSTCHAIN.get()) {
+            return;
+        }
 
         float timeSeconds = strikeActive
                 ? state.getStrikeSeconds(event.getPartialTick())
