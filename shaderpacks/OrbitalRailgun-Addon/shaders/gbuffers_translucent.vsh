@@ -1,17 +1,10 @@
-#version 150
-
-in vec4 vaPosition;
-in vec2 vaUV0;
-in vec4 vaColor;
-
-uniform mat4 gbufferModelView;
-uniform mat4 gbufferProjection;
-
-out vec2 texCoord;
-out vec4 vertexColor;
+#version 120
+// passthrough for engine-provided attributes
+varying vec4 vColor;
+varying vec2 texcoord;
 
 void main() {
-    texCoord = vaUV0;
-    vertexColor = vaColor;
-    gl_Position = gbufferProjection * gbufferModelView * vaPosition;
+    gl_Position = ftransform();
+    vColor      = gl_Color;
+    texcoord    = gl_MultiTexCoord0.st;
 }

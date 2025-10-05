@@ -1,6 +1,6 @@
 {
   "pack": {
     "pack_format": 8,
-    "description": "Orbital Railgun Add-On (mask + composite effects)"
+    "description": "Orbital Railgun Add-On: gbuffers marker + composite heat-haze"
   }
 }

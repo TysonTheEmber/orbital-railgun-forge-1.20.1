@@ -1,11 +1,7 @@
-#version 150
-
-in vec2 vaPosition;
-in vec2 vaUV0;
-
-out vec2 texCoord;
-
+#version 120
+// fullscreen quad with proper UVs from the engine
+varying vec2 texcoord;
 void main() {
-    texCoord = vaUV0;
-    gl_Position = vec4(vaPosition.xy, 0.0, 1.0);
+    gl_Position = ftransform();
+    texcoord    = gl_MultiTexCoord0.st;
 }

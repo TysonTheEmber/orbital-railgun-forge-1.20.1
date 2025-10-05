@@ -1,34 +1,34 @@
-#version 150
+#version 120
+// minimal, pack-friendly refraction keyed by mask in BLUE channel
 
-in vec2 texCoord;
+uniform sampler2D colortex0;   // composited color from previous stage
+uniform vec2      texelSize;   // 1.0 / framebuffer size (Iris/Oculus provides this)
+uniform float     frameTimeCounter;
 
-uniform sampler2D colortex0;
-uniform sampler2D colortex1;
-uniform float frameTimeCounter;
+varying vec2 texcoord;
 
-out vec4 outColor;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
 
-// Vertex color encoding from geometry: r=charge, g=hitKind, b=distance, a=intensity
 void main() {
-    vec2 uv = texCoord;
-    vec4 scene = texture(colortex0, uv);
-    vec4 mask = texture(colortex1, uv);
+    vec4 base  = texture2D(colortex0, texcoord);
 
-    float intensity = clamp(mask.a, 0.0, 1.0);
-    if (intensity <= 0.001) {
-        outColor = scene;
-        return;
-    }
+    // read our mask from blue
+    float mask = base.b;
 
-    float charge = mask.r;
-    float distance = mask.b;
+    // small, soft refraction
+    float t    = frameTimeCounter;
+    vec2  dir  = normalize(vec2(sin(t*3.1), cos(t*2.7)));
+    float n    = hash(floor(texcoord / texelSize * 0.5)) * 2.0 - 1.0;
 
-    float wobble = 0.01 + 0.05 * intensity;
-    vec2 offset = vec2(
-        sin(frameTimeCounter * 1.5 + charge * 12.0),
-        cos(frameTimeCounter * 0.75 + distance * 8.0)
-    ) * wobble;
+    // strength scales with mask, stays framebuffer-resolution-aware
+    float k    = clamp(mask, 0.0, 1.0);
+    vec2  off  = dir * (0.75 * k) * texelSize + n * (0.35 * k) * texelSize;
 
-    vec4 warped = texture(colortex0, uv + offset);
-    outColor = mix(scene, warped, intensity);
+    vec3 refr  = texture2D(colortex0, texcoord + off).rgb;
+
+    // mix only where mask > 0
+    vec3 color = mix(base.rgb, refr, k);
+
+    // preserve alpha, keep blue channel carrying mask forward in case final wants it
+    gl_FragData[0] = vec4(color.r, color.g, base.b, base.a);
 }
