@@ -1,0 +1,16 @@
+{
+  "targets": [
+    "minecraft:main"
+  ],
+  "passes": [
+    {
+      "name": "orbital_beam",
+      "intarget": "minecraft:main",
+      "outtarget": "minecraft:main",
+      "uniforms": [
+        {"name": "Time", "type": "float", "count": 1},
+        {"name": "Flash01", "type": "float", "count": 1}
+      ]
+    }
+  ]
+}

@@ -2,7 +2,10 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.fx.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.fx.RailgunFxRenderer;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunClientConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -130,23 +133,34 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
+        RailgunState state = RailgunState.getInstance();
+        Level level = minecraft.level;
+        if (level == null) {
             return;
         }
 
-        RailgunState state = RailgunState.getInstance();
-        Level level = minecraft.level;
         boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
         if (!strikeActive && !chargeActive) {
+            return;
+        }
+
+        boolean shaderpackActive = IrisCompat.isShaderpackActive();
+        boolean useWorldspace = OrbitalRailgunClientConfig.CLIENT.useWorldspaceAndHud.get();
+        boolean allowPostChain = OrbitalRailgunClientConfig.CLIENT.allowVanillaPostChain.get();
+
+        if (useWorldspace && (shaderpackActive || !allowPostChain)) {
+            RailgunFxRenderer.renderBeams(event, state);
+            RailgunFxRenderer.renderScreenFx(event, state, event.getPartialTick());
+            return;
+        }
+
+        if (!allowPostChain || railgunChain == null || !chainReady) {
             return;
         }
 

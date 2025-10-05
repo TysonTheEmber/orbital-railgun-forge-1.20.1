@@ -1,0 +1,24 @@
+{
+  "targets": [
+    "minecraft:main"
+  ],
+  "passes": [
+    {
+      "name": "orbital_screen_distort",
+      "intarget": "minecraft:main",
+      "outtarget": "minecraft:main",
+      "samplers": [
+        {"name": "DiffuseSampler"}
+      ],
+      "uniforms": [
+        {"name": "Time", "type": "float", "count": 1},
+        {"name": "Flash01", "type": "float", "count": 1},
+        {"name": "HitKind", "type": "int", "count": 1},
+        {"name": "HitPos", "type": "float", "count": 3},
+        {"name": "Distance", "type": "float", "count": 1},
+        {"name": "ScreenSize", "type": "float", "count": 2},
+        {"name": "HasGrab", "type": "int", "count": 1}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "targets": [
+    "minecraft:main"
+  ],
+  "passes": [
+    {
+      "name": "orbital_screen_tint",
+      "intarget": "minecraft:main",
+      "outtarget": "minecraft:main",
+      "samplers": [
+        {"name": "DiffuseSampler"}
+      ],
+      "uniforms": [
+        {"name": "Time", "type": "float", "count": 1},
+        {"name": "Flash01", "type": "float", "count": 1}
+      ]
+    }
+  ]
+}
