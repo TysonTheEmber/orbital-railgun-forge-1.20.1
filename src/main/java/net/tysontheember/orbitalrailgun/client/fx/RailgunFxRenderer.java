@@ -14,65 +14,36 @@ import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.Mth;
+import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix4f;
 
-import java.io.IOException;
-
 public final class RailgunFxRenderer {
-    private static ShaderInstance screenDistortShader;
-    private static ShaderInstance screenTintShader;
-    private static ShaderInstance beamShader;
+    public static ShaderInstance SCREEN_DISTORT;
+    public static ShaderInstance SCREEN_TINT;
+    public static ShaderInstance BEAM;
 
     private RailgunFxRenderer() {}
 
     public static SimplePreparableReloadListener<Void> createReloadListener() {
-        return new SimplePreparableReloadListener<>() {
+        return new SimplePreparableReloadListener<Void>() {
             @Override
-            protected Void prepare(ResourceManager resourceManager) {
-                return null;
+            protected @Nullable Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
+                return null; // nothing to preload
             }
 
             @Override
-            protected void apply(Void object, ResourceManager resourceManager) {
-                reloadShaders(resourceManager);
+            protected void apply(@Nullable Void prepped, ResourceManager resourceManager, ProfilerFiller profiler) {
+                // no-op: shaders are registered via RegisterShadersEvent
             }
         };
     }
 
-    private static void reloadShaders(ResourceManager resourceManager) {
-        closeShaders();
-        try {
-            screenDistortShader = new ShaderInstance(resourceManager, ForgeOrbitalRailgunMod.id("orbital_screen_distort"));
-            screenTintShader = new ShaderInstance(resourceManager, ForgeOrbitalRailgunMod.id("orbital_screen_tint"));
-            beamShader = new ShaderInstance(resourceManager, ForgeOrbitalRailgunMod.id("orbital_beam"));
-            ForgeOrbitalRailgunMod.LOGGER.debug("Reloaded orbital railgun Iris-compatible shaders");
-        } catch (IOException exception) {
-            ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun shaders", exception);
-            closeShaders();
-        }
-    }
-
-    private static void closeShaders() {
-        if (screenDistortShader != null) {
-            screenDistortShader.close();
-            screenDistortShader = null;
-        }
-        if (screenTintShader != null) {
-            screenTintShader.close();
-            screenTintShader = null;
-        }
-        if (beamShader != null) {
-            beamShader.close();
-            beamShader = null;
-        }
-    }
-
     public static void renderBeams(RenderLevelStageEvent event, RailgunState state, float partialTick) {
-        if (beamShader == null) {
+        if (BEAM == null) {
             return;
         }
 
@@ -87,10 +58,13 @@ public final class RailgunFxRenderer {
             return;
         }
 
-        Vec3 cameraPos = event.getCamera().getPosition();
+        Camera camera = event.getCamera();
+        Vec3 cameraPos = camera.getPosition();
         Vec3 effectPos = strikeActive ? state.getStrikePos() : state.getHitPos();
         if (effectPos.equals(Vec3.ZERO)) {
-            effectPos = cameraPos.add(event.getCamera().getLookVector().scale(64.0D));
+            var lookV3f = camera.getLookVector();
+            Vec3 look = new Vec3(lookV3f.x(), lookV3f.y(), lookV3f.z());
+            effectPos = cameraPos.add(look.scale(64.0D));
         }
 
         float timeSeconds = strikeActive ? state.getStrikeSeconds(partialTick) : state.getChargeSeconds(partialTick);
@@ -100,14 +74,14 @@ public final class RailgunFxRenderer {
         poseStack.pushPose();
         poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
 
-        applyCommonUniforms(beamShader, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
-        setMatrix(beamShader, "ProjMat", event.getProjectionMatrix());
-        setMatrix(beamShader, "ModelViewMat", poseStack.last().pose());
+        applyCommonUniforms(BEAM, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
+        setMatrix(BEAM, "ProjMat", event.getProjectionMatrix());
+        setMatrix(BEAM, "ModelViewMat", poseStack.last().pose());
 
         Matrix4f poseMatrix = poseStack.last().pose();
         Tesselator tesselator = Tesselator.getInstance();
         BufferBuilder builder = tesselator.getBuilder();
-        RenderSystem.setShader(() -> beamShader);
+        RenderSystem.setShader(() -> BEAM);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
@@ -117,7 +91,8 @@ public final class RailgunFxRenderer {
         Vec3 forward = effectPos.subtract(cameraPos).normalize();
         Vec3 right = forward.cross(up).normalize();
         if (right.lengthSqr() < 1.0E-4D) {
-            right = event.getCamera().getLeftVector();
+            var leftV3f = camera.getLeftVector();
+            right = new Vec3(-leftV3f.x(), -leftV3f.y(), -leftV3f.z());
         }
         right = right.normalize().scale(6.0D);
 
@@ -154,7 +129,7 @@ public final class RailgunFxRenderer {
     }
 
     public static void renderScreenFx(RenderLevelStageEvent event, RailgunState state, float partialTick) {
-        if (screenDistortShader == null || screenTintShader == null) {
+        if (SCREEN_DISTORT == null || SCREEN_TINT == null || BEAM == null) {
             return;
         }
 
@@ -173,7 +148,10 @@ public final class RailgunFxRenderer {
         Vec3 effectPos = strikeActive ? state.getStrikePos() : state.getHitPos();
         if (effectPos.equals(Vec3.ZERO)) {
             Camera camera = event.getCamera();
-            effectPos = camera.getPosition().add(camera.getLookVector().scale(64.0D));
+            Vec3 camPos = camera.getPosition();
+            var lookV3f = camera.getLookVector();
+            Vec3 look = new Vec3(lookV3f.x(), lookV3f.y(), lookV3f.z());
+            effectPos = camPos.add(look.scale(64.0D));
         }
 
         float timeSeconds = strikeActive ? state.getStrikeSeconds(partialTick) : state.getChargeSeconds(partialTick);
@@ -184,14 +162,14 @@ public final class RailgunFxRenderer {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        RenderSystem.setShader(() -> screenDistortShader);
-        applyCommonUniforms(screenDistortShader, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
-        setScreenUniforms(screenDistortShader, window, false);
+        RenderSystem.setShader(() -> SCREEN_DISTORT);
+        applyCommonUniforms(SCREEN_DISTORT, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
+        setScreenUniforms(SCREEN_DISTORT, window, false);
         drawFullscreenQuad();
 
-        RenderSystem.setShader(() -> screenTintShader);
-        applyCommonUniforms(screenTintShader, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
-        setScreenUniforms(screenTintShader, window, false);
+        RenderSystem.setShader(() -> SCREEN_TINT);
+        applyCommonUniforms(SCREEN_TINT, state, partialTick, strikeActive, timeSeconds, effectPos, flashStrength);
+        setScreenUniforms(SCREEN_TINT, window, false);
         drawFullscreenQuad();
 
         RenderSystem.disableBlend();
