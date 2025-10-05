@@ -14,6 +14,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -40,7 +41,8 @@ public final class OrbitalRailgunCommands {
     private static int exportBridge(CommandContext<CommandSourceStack> ctx, String packName) throws CommandSyntaxException {
         CommandSourceStack source = ctx.getSource();
         MinecraftServer server = source.getServer();
-        Path rootPath = server.getServerDirectory().toPath();
+        File serverDir = server.getServerDirectory();
+        Path rootPath = serverDir.toPath();
         Path bridgePath = rootPath.resolve(BRIDGE_ROOT).resolve(packName);
 
         try {

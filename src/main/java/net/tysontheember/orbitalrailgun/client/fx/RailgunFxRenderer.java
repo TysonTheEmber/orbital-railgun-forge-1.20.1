@@ -5,8 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -14,29 +14,20 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.client.event.RegisterShadersEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
-import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
-
-import java.io.IOException;
+import org.joml.Matrix4f;
 
 public final class RailgunFxRenderer {
-    private static ShaderInstance screenDistortShader;
-    private static ShaderInstance screenTintShader;
-    private static ShaderInstance beamShader;
+    public static ShaderInstance SCREEN_DISTORT;
+    public static ShaderInstance SCREEN_TINT;
+    public static ShaderInstance BEAM;
 
     private RailgunFxRenderer() {
     }
 
-    public static void registerShaders(RegisterShadersEvent event) throws IOException {
-        event.registerShader(new ShaderInstance(event.getResourceProvider(), ForgeOrbitalRailgunMod.id("orbital_screen_distort"), DefaultVertexFormat.POSITION), shader -> screenDistortShader = shader);
-        event.registerShader(new ShaderInstance(event.getResourceProvider(), ForgeOrbitalRailgunMod.id("orbital_screen_tint"), DefaultVertexFormat.POSITION), shader -> screenTintShader = shader);
-        event.registerShader(new ShaderInstance(event.getResourceProvider(), ForgeOrbitalRailgunMod.id("orbital_beam"), DefaultVertexFormat.POSITION), shader -> beamShader = shader);
-    }
-
     public static void renderBeams(RenderLevelStageEvent event, RailgunState state) {
-        if (beamShader == null) {
+        if (BEAM == null) {
             return;
         }
 
@@ -63,7 +54,7 @@ public final class RailgunFxRenderer {
         float distance = (float) cameraPos.distanceTo(targetPos);
 
         float flash = strikeActive ? computeStrikeFlash(state, partialTick) : computeChargeFlash(state, partialTick);
-        setCommonUniforms(beamShader, timeSeconds, flash, state, targetPos, distance);
+        setCommonUniforms(BEAM, timeSeconds, flash, state, targetPos, distance);
 
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
@@ -89,7 +80,7 @@ public final class RailgunFxRenderer {
     }
 
     public static void renderScreenFx(RenderLevelStageEvent event, RailgunState state, float partialTick) {
-        if (screenDistortShader == null || screenTintShader == null) {
+        if (SCREEN_DISTORT == null || SCREEN_TINT == null || BEAM == null) {
             return;
         }
 
@@ -116,11 +107,11 @@ public final class RailgunFxRenderer {
         float timeSeconds = strikeActive ? state.getStrikeSeconds(partialTick) : state.getChargeSeconds(partialTick);
         float flash = strikeActive ? computeStrikeFlash(state, partialTick) : computeChargeFlash(state, partialTick);
 
-        setCommonUniforms(screenDistortShader, timeSeconds, flash, state, targetPos, distance);
-        setCommonUniforms(screenTintShader, timeSeconds, flash, state, targetPos, distance);
+        setCommonUniforms(SCREEN_DISTORT, timeSeconds, flash, state, targetPos, distance);
+        setCommonUniforms(SCREEN_TINT, timeSeconds, flash, state, targetPos, distance);
 
-        renderFullscreenQuad(screenDistortShader);
-        renderFullscreenQuad(screenTintShader);
+        renderFullscreenQuad(SCREEN_DISTORT);
+        renderFullscreenQuad(SCREEN_TINT);
     }
 
     private static void renderFullscreenQuad(ShaderInstance shader) {
@@ -180,6 +171,6 @@ public final class RailgunFxRenderer {
     }
 
     public static boolean hasShaders() {
-        return screenDistortShader != null && screenTintShader != null && beamShader != null;
+        return SCREEN_DISTORT != null && SCREEN_TINT != null && BEAM != null;
     }
 }

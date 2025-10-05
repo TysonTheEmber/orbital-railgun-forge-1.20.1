@@ -20,6 +20,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
+import org.jetbrains.annotations.Nullable;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -76,15 +77,16 @@ public final class ClientEvents {
     private static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(new SimplePreparableReloadListener<Void>() {
             @Override
-            protected Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
+            protected @Nullable Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
                 return null;
             }
 
             @Override
-            protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
-                ClientEvents.reloadChain(resourceManager);
+            protected void apply(@Nullable Void prepped, ResourceManager resourceManager, ProfilerFiller profiler) {
+                // no-op: shaders are registered via RegisterShadersEvent
             }
-        });    }
+        });
+    }
 
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
