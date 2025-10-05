@@ -2,7 +2,10 @@ package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.fx.IrisCompat;
+import net.tysontheember.orbitalrailgun.client.fx.RailgunFxRenderer;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.config.OrbitalRailgunClientConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -56,6 +59,8 @@ public final class ClientEvents {
     private static int chainHeight = -1;
 
     private static boolean attackWasDown;
+    private static boolean irisLogged;
+    private static boolean lastIrisState;
 
     static {
         if (PASSES_FIELD != null) {
@@ -130,9 +135,6 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             return;
         }
@@ -147,6 +149,22 @@ public final class ClientEvents {
         boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
         if (!strikeActive && !chargeActive) {
+            return;
+        }
+
+        boolean shaderpackActive = IrisCompat.isShaderpackActive();
+        logIrisState(shaderpackActive);
+
+        boolean allowWorldspace = OrbitalRailgunClientConfig.CLIENT.useWorldspaceAndHud.get();
+        boolean forceWorldspace = !OrbitalRailgunClientConfig.CLIENT.allowVanillaPostChain.get();
+
+        if (((shaderpackActive && allowWorldspace) || forceWorldspace) && RailgunFxRenderer.hasShaders()) {
+            RailgunFxRenderer.renderBeams(event, state);
+            RailgunFxRenderer.renderScreenFx(event, state, event.getPartialTick());
+            return;
+        }
+
+        if (!chainReady || railgunChain == null) {
             return;
         }
 
@@ -170,6 +188,17 @@ public final class ClientEvents {
         applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
 
         railgunChain.process(event.getPartialTick());
+    }
+
+    private static void logIrisState(boolean active) {
+        if (!OrbitalRailgunClientConfig.CLIENT.logIrisState.get()) {
+            return;
+        }
+        if (!irisLogged || active != lastIrisState) {
+            ForgeOrbitalRailgunMod.LOGGER.info("Orbital Railgun shaderpack bridge active: {}", active);
+            irisLogged = true;
+            lastIrisState = active;
+        }
     }
 
     @SubscribeEvent
