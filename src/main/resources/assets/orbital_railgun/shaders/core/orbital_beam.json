@@ -1,0 +1,10 @@
+{
+  "vertex": "orbital_beam",
+  "fragment": "orbital_beam",
+  "attributes": ["Position"],
+  "samplers": [],
+  "uniforms": [
+    { "name": "Time",     "type": "float", "count": 1 },
+    { "name": "Charge01", "type": "float", "count": 1 }
+  ]
+}

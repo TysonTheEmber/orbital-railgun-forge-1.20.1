@@ -9,6 +9,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.server.ServerLifecycleHooks;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,7 +34,8 @@ public final class ShaderpackBridgeExporter {
         }
 
         String safeName = normalized.replaceAll("[^A-Za-z0-9-_]", "_");
-        Path serverDir = server.getServerDirectory();
+        File serverDirectory = server.getServerDirectory();
+        Path serverDir = serverDirectory != null ? serverDirectory.toPath() : null;
         if (serverDir == null) {
             serverDir = server.getWorldPath(LevelResource.ROOT);
         }
