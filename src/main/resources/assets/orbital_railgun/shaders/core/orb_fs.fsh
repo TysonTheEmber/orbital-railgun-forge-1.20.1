@@ -1,44 +1,36 @@
+// assets/orbital_railgun/shaders/core/orb_fs.fsh
 #version 150
 
 uniform sampler2D SceneColor;
-uniform sampler2D SceneDepth;
+uniform sampler2D SceneDepth;          // may or may not be bound at runtime
 
 uniform vec2  OutSize;
-uniform mat4  InverseTransformMatrix;
+uniform mat4  InverseTransformMatrix;  // provided by you (inverse projection)
 uniform vec3  CameraPosition;
 uniform float iTime;
 uniform int   HitKind;
 uniform vec3  HitPos;
-uniform float StrikeActive;
-uniform float SelectionActive;
-uniform float Distance;
-// Also declared by the post chain sometimes:
-uniform mat4  ProjMat;
-uniform mat4  ModelViewMat;
 
 out vec4 fragColor;
 
 void main() {
-    // Screen UV
-    vec2 uv = gl_FragCoord.xy / max(OutSize, vec2(1.0));
+    // Screen-space UVs from pixel coords
+    vec2 uv = gl_FragCoord.xy / OutSize;
 
-    vec4 scene = texture(SceneColor, uv);
-    float depth = texture(SceneDepth, uv).r;
+    vec4 color = texture(SceneColor, uv);
 
-    // Tiny animated tint so iTime/HitKind are used
-    float pulse = 0.5 + 0.5 * sin(iTime * 6.2831853);
-    vec3  tint  = mix(vec3(1.0, 0.6, 0.2), vec3(0.2, 0.6, 1.0), float(HitKind & 1));
+    // --- Zero-weight references so uniforms aren't optimized away ---
+    // Depth sample (added with weight 0.0 so it doesn't change output)
+    float depthSample = texture(SceneDepth, uv).r;
+    color.rgb += 0.0 * depthSample;
 
-    vec3 color = scene.rgb + 0.05 * pulse * tint;
+    // Touch matrix, camera, time, hit data
+    float matNibble = InverseTransformMatrix[0][0] + InverseTransformMatrix[1][1];
+    color.rgb += 0.0 * matNibble;
+    color.rgb += 0.0 * CameraPosition;
+    color.rgb += 0.0 * iTime;
+    color.rgb += 0.0 * float(HitKind);
+    color.rgb += 0.0 * HitPos;
 
-    // Touch the rest so they aren’t optimized out (negligible impact)
-    float guard =
-    InverseTransformMatrix[0][0] * 1e-6 +
-    dot(CameraPosition, HitPos)   * 0.0 +
-    StrikeActive * 0.0 + SelectionActive * 0.0 + Distance * 0.0 +
-    ProjMat[1][1] * 0.0 + ModelViewMat[1][1] * 0.0;
-
-    color += vec3(guard);
-
-    fragColor = vec4(color, scene.a);
+    fragColor = color;
 }
