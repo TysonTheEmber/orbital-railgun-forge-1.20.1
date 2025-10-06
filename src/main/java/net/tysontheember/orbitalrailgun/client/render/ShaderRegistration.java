@@ -7,13 +7,23 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterShadersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 
-@Mod.EventBusSubscriber(value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+import java.io.IOException;
+
+@Mod.EventBusSubscriber(
+        modid = ForgeOrbitalRailgunMod.MOD_ID,
+        value = Dist.CLIENT,
+        bus = Mod.EventBusSubscriber.Bus.MOD
+)
 public final class ShaderRegistration {
+
+    private ShaderRegistration() {}
 
     @SubscribeEvent
     public static void onRegisterShaders(RegisterShadersEvent event) {
         try {
+            // IMPORTANT: DO NOT prefix with "shaders/" and DO NOT include ".json"
             ShaderInstance beam = new ShaderInstance(
                     event.getResourceProvider(),
                     new ResourceLocation("orbital_railgun", "orb_beam"),
@@ -28,7 +38,7 @@ public final class ShaderRegistration {
             );
             event.registerShader(marker, shader -> ClientRender.MARKER_SHADER = shader);
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             throw new RuntimeException("Failed to register Orbital Railgun shaders", e);
         }
     }

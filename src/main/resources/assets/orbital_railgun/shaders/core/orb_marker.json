@@ -2,16 +2,77 @@
   "blend": {
     "func": "add",
     "srcrgb": "srcalpha",
-    "dstrgb": "one"
+    "dstrgb": "1-srcalpha"
   },
-  "vertex": "orbital_railgun:shaders/core/orb_marker.vsh",
-  "fragment": "orbital_railgun:shaders/core/orb_marker.fsh",
-  "attributes": [ "Position", "Color", "UV0" ],
+  "vertex": "orbital_railgun:core/orb_marker",
+  "fragment": "orbital_railgun:core/orb_marker",
+  "attributes": [
+    "Position",
+    "Color",
+    "UV0"
+  ],
   "samplers": [
-    { "name": "Sampler0" }
+    { "name": "Sampler0" },
+    { "name": "MaskTex" }
   ],
   "uniforms": [
-    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
-    { "name": "ProjMat",      "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] }
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+      ]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+      ]
+    },
+    {
+      "name": "ColorModulator",
+      "type": "vec4",
+      "count": 4,
+      "values": [1, 1, 1, 1]
+    },
+    {
+      "name": "GameTime",
+      "type": "float",
+      "count": 1,
+      "values": [0]
+    },
+    {
+      "name": "ScreenSize",
+      "type": "vec2",
+      "count": 2,
+      "values": [1, 1]
+    },
+    {
+      "name": "FogStart",
+      "type": "float",
+      "count": 1,
+      "values": [0]
+    },
+    {
+      "name": "FogEnd",
+      "type": "float",
+      "count": 1,
+      "values": [1]
+    },
+    {
+      "name": "FogColor",
+      "type": "vec4",
+      "count": 4,
+      "values": [0, 0, 0, 0]
+    }
   ]
 }
