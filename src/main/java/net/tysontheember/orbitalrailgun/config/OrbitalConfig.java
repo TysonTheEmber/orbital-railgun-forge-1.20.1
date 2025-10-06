@@ -10,32 +10,38 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.IntValue COOLDOWN;
     public static final ForgeConfigSpec.IntValue STRIKE_DAMAGE;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLACKLISTED_BLOCKS;
-    public static final ForgeConfigSpec.BooleanValue suckEntities;
+    public static final ForgeConfigSpec.BooleanValue SUCK_ENTITIES;
+    public static final ForgeConfigSpec.BooleanValue DEBUG;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.push("orbitalStrike");
         MAX_BREAK_HARDNESS = builder
-            .comment("Maximum block hardness the orbital strike can destroy(set to -1 for infinite)")
+            .comment("Maximum block hardness the orbital strike can destroy(set to -1 to destroy all blocks)")
             .defineInRange("maxBreakHardness", 50.0D, -1.0D, Double.MAX_VALUE);
         COOLDOWN = builder
             .comment("Cooldown of the Railgun in ticks")
-            .defineInRange("cooldown", 24000, 2000, Integer.MAX_VALUE);
+            .defineInRange("cooldown", 24000, 18000, Integer.MAX_VALUE);
         STRIKE_DAMAGE = builder
             .comment("Damage of the Orbital Strike")
             .defineInRange("strikeDamage", Integer.MAX_VALUE, 0, Integer.MAX_VALUE);
         BLACKLISTED_BLOCKS = builder
-            .comment("Blocks that cannot be destroyed by the orbital strike.")
+            .comment("Blocks that won't be destroyed by the orbital strike.")
             .defineList("blacklistedBlocks", List.of(
                 "minecraft:bedrock",
                 "minecraft:end_portal_frame",
                 "minecraft:end_portal",
                 "minecraft:barrier"
             ), o -> o instanceof String);
-        suckEntities = builder
+        SUCK_ENTITIES = builder
                 .comment("Whether entities are pulled towards the strike before detonation.")
                 .define("suckEntities", true);
+        DEBUG = builder
+                .comment("Toggle Debug mode")
+                .define("debugMode", false);
+
+
         builder.pop();
 
         COMMON_SPEC = builder.build();
@@ -43,15 +49,12 @@ public final class OrbitalConfig {
 
     private OrbitalConfig() {}
 
-    public static double getMaxBreakHardness() {
-        return MAX_BREAK_HARDNESS.get();
-    }
-
-    public static List<? extends String> getBlacklistedBlocks() {
-        return BLACKLISTED_BLOCKS.get();
-    }
-
-    public static boolean isBlockBlacklisted(String blockId) {
-        return getBlacklistedBlocks().contains(blockId);
+    public static boolean isBlockBlacklistedNormalized(String blockId) {
+        if (blockId == null) return false;
+        String target = blockId.trim().toLowerCase();
+        for (String s : BLACKLISTED_BLOCKS.get()) {
+            if (s != null && target.equals(s.trim().toLowerCase())) return true;
+        }
+        return false;
     }
 }

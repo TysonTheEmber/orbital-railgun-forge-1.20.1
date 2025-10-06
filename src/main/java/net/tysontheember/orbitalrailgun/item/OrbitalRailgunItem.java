@@ -30,7 +30,7 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.BOW;
+        return UseAnim.SPYGLASS;
     }
 
     @Override
@@ -85,6 +85,25 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return cache;
+    }
+    @Override
+    public void appendHoverText(ItemStack stack, @org.jetbrains.annotations.Nullable Level level,
+                                java.util.List<net.minecraft.network.chat.Component> tooltip,
+                                net.minecraft.world.item.TooltipFlag flag) {
+        // Basic one-line tooltip from lang file
+        tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip")
+                .withStyle(net.minecraft.ChatFormatting.GRAY));
+
+        // Optional: extra details on SHIFT
+        if (net.minecraft.client.gui.screens.Screen.hasShiftDown()) {
+            tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip.shift1")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
+            tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip.shift2")
+                    .withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
+        } else {
+            tooltip.add(net.minecraft.network.chat.Component.translatable("tooltip.orbital_railgun.hold_shift")
+                    .withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.ITALIC));
+        }
     }
 
 }

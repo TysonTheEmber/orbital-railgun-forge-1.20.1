@@ -92,7 +92,7 @@ public final class OrbitalRailgunStrikeManager {
                 iterator.remove();
                 damageEntities(level, strike, age);
                 explode(level, strike.key.pos());
-            } else if (age >= 400 && OrbitalConfig.suckEntities.get()) {
+            } else if (age >= 400 && OrbitalConfig.SUCK_ENTITIES.get()) {
                 pushEntities(level, strike, age);
             }
         }
@@ -145,34 +145,47 @@ public final class OrbitalRailgunStrikeManager {
         for (int y = level.getMinBuildHeight(); y <= level.getMaxBuildHeight(); y++) {
             for (int x = -RADIUS; x <= RADIUS; x++) {
                 for (int z = -RADIUS; z <= RADIUS; z++) {
-                    if (MASK[x + RADIUS][z + RADIUS]) {
-                        mutable.set(center.getX() + x, y, center.getZ() + z);
-                        BlockState state = level.getBlockState(mutable);
-                        if (state.isAir()) {
-                            continue;
-                        }
-                        ResourceLocation id = ForgeRegistries.BLOCKS.getKey(state.getBlock());
-                        double hardness = state.getDestroySpeed(level, mutable);
-                        if (id != null && OrbitalConfig.isBlockBlacklisted(id.toString())) {
+                    if (!MASK[x + RADIUS][z + RADIUS]) continue;
+
+                    mutable.set(center.getX() + x, y, center.getZ() + z);
+                    BlockState state = level.getBlockState(mutable);
+                    if (state.isAir()) continue;
+
+                    double maxHardness = OrbitalConfig.MAX_BREAK_HARDNESS.get();
+                    boolean infinite = maxHardness < 0.0D;
+
+                    // Always resolve ID once
+                    ResourceLocation id = ForgeRegistries.BLOCKS.getKey(state.getBlock());
+
+                    // 1) Blacklist check ALWAYS applies
+                    if (id != null && OrbitalConfig.isBlockBlacklistedNormalized(id.toString())) {
+                        if (OrbitalConfig.DEBUG.get()) {
                             ForgeOrbitalRailgunMod.LOGGER.info("[OrbitalStrike] Skipped blacklisted block: {}", id);
-                            continue;
                         }
-                        double maxHardness = OrbitalConfig.getMaxBreakHardness();
-                        if (hardness > maxHardness) {
-                            ForgeOrbitalRailgunMod.LOGGER.info(
-                                "[OrbitalStrike] Skipped block due to hardness: {} ({} > {})",
-                                id,
-                                hardness,
-                                maxHardness
-                            );
-                            continue;
-                        }
-                        level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
+                        continue;
                     }
+
+                    // 2) Hardness check only applies when not infinite
+                    if (!infinite) {
+                        double hardness = state.getDestroySpeed(level, mutable);
+                        if (hardness > maxHardness) {
+                            if (OrbitalConfig.DEBUG.get()) {
+                                ForgeOrbitalRailgunMod.LOGGER.info(
+                                        "[OrbitalStrike] Skipped block due to hardness: {} ({} > {})",
+                                        id, hardness, maxHardness
+                                );
+                            }
+                            continue;
+                        }
+                    }
+
+                    // Break the block
+                    level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
                 }
             }
         }
     }
+
 
     private record StrikeKey(ResourceKey<Level> dimension, BlockPos pos) {}
 
