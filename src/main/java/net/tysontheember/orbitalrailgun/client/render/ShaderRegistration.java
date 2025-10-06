@@ -1,6 +1,8 @@
 package net.tysontheember.orbitalrailgun.client.render;
 
+import com.mojang.blaze3d.shaders.Uniform;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
@@ -11,33 +13,32 @@ import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 
 import java.io.IOException;
 
-@Mod.EventBusSubscriber(
-        modid = ForgeOrbitalRailgunMod.MOD_ID,
-        value = Dist.CLIENT,
-        bus = Mod.EventBusSubscriber.Bus.MOD
-)
+@Mod.EventBusSubscriber(value = Dist.CLIENT, modid = ForgeOrbitalRailgunMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class ShaderRegistration {
+
+    public static ShaderInstance ORB_BEAM_SHADER;
+    public static ShaderInstance ORB_MARKER_SHADER;
 
     private ShaderRegistration() {}
 
     @SubscribeEvent
     public static void onRegisterShaders(RegisterShadersEvent event) {
         try {
-            // IMPORTANT: DO NOT prefix with "shaders/" and DO NOT include ".json"
-            ShaderInstance beam = new ShaderInstance(
+            // Looks for: assets/orbital_railgun/shaders/core/orb_beam.json
+            ORB_BEAM_SHADER = new ShaderInstance(
                     event.getResourceProvider(),
-                    new ResourceLocation("orbital_railgun", "orb_beam"),
+                    new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, "orb_beam"),
                     DefaultVertexFormat.POSITION_COLOR_TEX
             );
-            event.registerShader(beam, shader -> ClientRender.BEAM_SHADER = shader);
+            event.registerShader(ORB_BEAM_SHADER, s -> {});
 
-            ShaderInstance marker = new ShaderInstance(
+            // Looks for: assets/orbital_railgun/shaders/core/orb_marker.json
+            ORB_MARKER_SHADER = new ShaderInstance(
                     event.getResourceProvider(),
-                    new ResourceLocation("orbital_railgun", "orb_marker"),
+                    new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, "orb_marker"),
                     DefaultVertexFormat.POSITION_COLOR_TEX
             );
-            event.registerShader(marker, shader -> ClientRender.MARKER_SHADER = shader);
-
+            event.registerShader(ORB_MARKER_SHADER, s -> {});
         } catch (IOException e) {
             throw new RuntimeException("Failed to register Orbital Railgun shaders", e);
         }

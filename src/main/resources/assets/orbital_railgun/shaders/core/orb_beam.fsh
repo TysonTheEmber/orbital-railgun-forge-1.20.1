@@ -5,10 +5,22 @@ in vec2 vUV;
 
 uniform sampler2D MaskTex;
 
+// Keep these so MC/Embeddium/Oculus stop warning when trying to upload them.
+uniform vec4 ColorModulator;
+uniform float GameTime;
+uniform vec2 ScreenSize;
+uniform float FogStart;
+uniform float FogEnd;
+uniform vec4 FogColor;
+
 out vec4 fragColor;
 
 void main() {
-    // White mask means “fully on” (keep it simple)
     float m = texture(MaskTex, vUV).r;
-    fragColor = vec4(vColor.rgb, vColor.a * m);
+    vec4 col = vColor * ColorModulator;
+    col.a *= m;
+
+    // simple fog (optional; very conservative)
+    // not strictly required for correctness
+    fragColor = col;
 }

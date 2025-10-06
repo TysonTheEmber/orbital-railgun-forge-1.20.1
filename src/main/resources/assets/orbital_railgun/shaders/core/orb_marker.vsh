@@ -11,7 +11,7 @@ out vec4 vColor;
 out vec2 vUV;
 
 void main() {
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     vColor = Color;
     vUV = UV0;
-    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 }
