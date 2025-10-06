@@ -1,13 +1,7 @@
 {
   "item.orbital_railgun.orbital_railgun": "Orbital Railgun",
   "death.attack.strike": "%1$s was obliterated by an Orbital Strike",
-  "subtitles.orbital_railgun.charge_start": "Railgun charging",
-  "subtitles.orbital_railgun.charge_loop": "Railgun charge hum",
-  "subtitles.orbital_railgun.fire": "Orbital strike fired",
-  "subtitles.orbital_railgun.impact": "Orbital strike impact",
-  "subtitles.orbital_railgun.cooldown": "Railgun cooling down",
-  "subtitles.orbital_railgun.lock": "Target lock acquired",
-  "subtitles.orbital_railgun.equip": "Railgun readied",
-  "subtitles.orbital_railgun.scope_on": "Railgun scope engaged",
-  "subtitles.orbital_railgun.railgun_shoot": "Orbital strike cannon blast"
+  "subtitles.orbital_railgun.equip": "Railgun equipped",
+  "subtitles.orbital_railgun.scope_on": "Scope online",
+  "subtitles.orbital_railgun.railgun_shoot": "Railgun fired"
 }

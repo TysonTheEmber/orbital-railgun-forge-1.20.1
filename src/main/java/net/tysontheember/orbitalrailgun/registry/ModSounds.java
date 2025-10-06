@@ -11,18 +11,13 @@ public final class ModSounds {
     public static final DeferredRegister<SoundEvent> SOUNDS =
             DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, ForgeOrbitalRailgunMod.MOD_ID);
 
-    private static RegistryObject<SoundEvent> sound(String path) {
-        return SOUNDS.register(path, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, path)));
+    private static RegistryObject<SoundEvent> sound(String id) {
+        return SOUNDS.register(id, () -> SoundEvent.createVariableRangeEvent(
+                new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, id)));
     }
 
-    public static final RegistryObject<SoundEvent> CHARGE_START = sound("charge_start");
-    public static final RegistryObject<SoundEvent> CHARGE_LOOP = sound("charge_loop");
-    public static final RegistryObject<SoundEvent> FIRE = sound("fire");
-    public static final RegistryObject<SoundEvent> IMPACT = sound("impact");
-    public static final RegistryObject<SoundEvent> COOLDOWN = sound("cooldown");
-    public static final RegistryObject<SoundEvent> LOCK = sound("lock");
-    public static final RegistryObject<SoundEvent> EQUIP = sound("equip");
-    public static final RegistryObject<SoundEvent> SCOPE_ON = sound("scope_on");
+    public static final RegistryObject<SoundEvent> EQUIP         = sound("equip");
+    public static final RegistryObject<SoundEvent> SCOPE_ON      = sound("scope_on");
     public static final RegistryObject<SoundEvent> RAILGUN_SHOOT = sound("railgun_shoot");
 
     private ModSounds() {}

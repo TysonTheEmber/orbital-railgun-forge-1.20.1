@@ -3,6 +3,7 @@ package net.tysontheember.orbitalrailgun;
 import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.util.OrbitalRailgunStrikeManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -34,6 +35,7 @@ public class ForgeOrbitalRailgunMod {
 
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         ITEMS.register(modBus);
+        ModSounds.SOUNDS.register(modBus);
         modBus.addListener(this::onCommonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalRailgunConfig.COMMON_SPEC);
