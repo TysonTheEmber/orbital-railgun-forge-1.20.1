@@ -2,7 +2,6 @@ package net.tysontheember.orbitalrailgun.util;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
-import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.network.S2C_PlayStrikeEffects;
@@ -93,7 +92,7 @@ public final class OrbitalRailgunStrikeManager {
                 iterator.remove();
                 damageEntities(level, strike, age);
                 explode(level, strike.key.pos());
-            } else if (age >= 400 && OrbitalRailgunConfig.COMMON.suckEntities.get()) {
+            } else if (age >= 400 && OrbitalConfig.suckEntities.get()) {
                 pushEntities(level, strike, age);
             }
         }
@@ -126,7 +125,7 @@ public final class OrbitalRailgunStrikeManager {
             .registryOrThrow(Registries.DAMAGE_TYPE)
             .getHolderOrThrow(STRIKE_DAMAGE);
         DamageSource source = new DamageSource(damageType);
-        double configuredDamage = OrbitalRailgunConfig.COMMON.strikeDamage.get();
+        double configuredDamage = OrbitalConfig.STRIKE_DAMAGE.get();
         if (configuredDamage <= 0.0D) {
             return;
         }
@@ -150,9 +149,6 @@ public final class OrbitalRailgunStrikeManager {
                         mutable.set(center.getX() + x, y, center.getZ() + z);
                         BlockState state = level.getBlockState(mutable);
                         if (state.isAir()) {
-                            continue;
-                        }
-                        if (!OrbitalRailgunConfig.COMMON.breakBedrock.get() && state.is(Blocks.BEDROCK)) {
                             continue;
                         }
                         ResourceLocation id = ForgeRegistries.BLOCKS.getKey(state.getBlock());
