@@ -1,12 +1,14 @@
 #version 150
+
 in vec4 vColor;
 in vec2 vUV;
 
-uniform sampler2D Sampler0;
+uniform sampler2D MaskTex;
 
 out vec4 fragColor;
 
 void main() {
-    // Invisible in vanilla color; Iris/Oculus reads vColor via gbuffers.
-    fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+    // White mask means “fully on” (keep it simple)
+    float m = texture(MaskTex, vUV).r;
+    fragColor = vec4(vColor.rgb, vColor.a * m);
 }
