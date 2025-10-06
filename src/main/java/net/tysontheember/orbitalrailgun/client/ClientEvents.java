@@ -1,12 +1,6 @@
 package net.tysontheember.orbitalrailgun.client;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
-import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
-import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
-import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
-import net.tysontheember.orbitalrailgun.network.Network;
-import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -17,8 +11,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
-import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -34,6 +29,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
+import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
+import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import org.joml.Matrix4f;
 
 import java.io.IOException;
@@ -60,6 +61,9 @@ public final class ClientEvents {
     private static boolean attackWasDown;
     private static boolean chargingLastTick;
 
+    // NEW: track previous main-hand stack to fire the 'equip' cue only on swap-to-railgun
+    private static ItemStack prevMainHand = ItemStack.EMPTY;
+
     static {
         if (PASSES_FIELD != null) {
             PASSES_FIELD.setAccessible(true);
@@ -82,7 +86,8 @@ public final class ClientEvents {
             protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
             }
-        });    }
+        });
+    }
 
     private static void reloadChain(ResourceManager resourceManager) {
         Minecraft minecraft = Minecraft.getInstance();
@@ -106,18 +111,15 @@ public final class ClientEvents {
     }
 
     private static void resizeChain(Minecraft minecraft) {
-        if (railgunChain == null) {
-            return;
-        }
+        if (railgunChain == null) return;
+
         RenderTarget mainTarget = minecraft.getMainRenderTarget();
-        if (mainTarget == null) {
-            return;
-        }
+        if (mainTarget == null) return;
+
         int width = mainTarget.width;
         int height = mainTarget.height;
-        if (width == chainWidth && height == chainHeight) {
-            return;
-        }
+        if (width == chainWidth && height == chainHeight) return;
+
         railgunChain.resize(width, height);
         chainWidth = width;
         chainHeight = height;
@@ -125,33 +127,23 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Post event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
+        if (!chainReady || railgunChain == null) return;
         resizeChain(Minecraft.getInstance());
     }
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
-        if (!chainReady || railgunChain == null) {
-            return;
-        }
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
-            return;
-        }
+        if (!chainReady || railgunChain == null) return;
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
-            return;
-        }
+        if (minecraft.level == null) return;
 
         RailgunState state = RailgunState.getInstance();
         Level level = minecraft.level;
         boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
         boolean chargeActive = state.isCharging();
-        if (!strikeActive && !chargeActive) {
-            return;
-        }
+        if (!strikeActive && !chargeActive) return;
 
         resizeChain(minecraft);
 
@@ -177,15 +169,28 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) {
-            return;
-        }
+        if (event.phase != TickEvent.Phase.END) return;
+
         Minecraft minecraft = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.tick(minecraft);
 
         LocalPlayer player = minecraft.player;
+
+        // --- NEW: equip cue on swap to railgun (main hand) ---
+        if (player != null) {
+            ItemStack current = player.getMainHandItem();
+            boolean wasRailgun = !prevMainHand.isEmpty() && prevMainHand.getItem() instanceof OrbitalRailgunItem;
+            boolean isRailgun  = !current.isEmpty() && current.getItem() instanceof OrbitalRailgunItem;
+            if (!wasRailgun && isRailgun && ModSounds.EQUIP.isPresent()) {
+                playLocalPlayerSound(ModSounds.EQUIP.get(), 1.0F, 1.0F);
+            }
+            prevMainHand = current;
+        }
+
+        // scope_on on charging start
         handleChargeAudio(state);
+
         boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
         if (attackDown && !attackWasDown && state.canRequestFire(player)) {
             attemptFire(minecraft, state, player);
@@ -194,19 +199,16 @@ public final class ClientEvents {
     }
 
     private static void attemptFire(Minecraft minecraft, RailgunState state, LocalPlayer player) {
-        if (minecraft.gameMode == null) {
-            return;
-        }
+        if (minecraft.gameMode == null) return;
+
         HitResult hitResult = state.getCurrentHit();
-        if (!(hitResult instanceof BlockHitResult blockHitResult)) {
-            return;
-        }
+        if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
+
         BlockPos target = blockHitResult.getBlockPos();
         OrbitalRailgunItem item = state.getActiveRailgunItem();
-        if (item == null) {
-            return;
-        }
+        if (item == null) return;
 
+        // Client-side cooldown & release; server will validate and broadcast shoot sound
         item.applyCooldown(player);
         minecraft.gameMode.releaseUsingItem(player);
         state.markFired();
@@ -224,32 +226,24 @@ public final class ClientEvents {
     private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
                                       float distance, float timeSeconds, float isBlockHit, boolean strikeActive, RailgunState state) {
         List<PostPass> passes = getPasses();
-        if (passes.isEmpty()) {
-            return;
-        }
+        if (passes.isEmpty()) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         RenderTarget renderTarget = minecraft.getMainRenderTarget();
-        if (renderTarget == null) {
-            return;
-        }
+        if (renderTarget == null) return;
 
         float width = renderTarget.width > 0 ? renderTarget.width : renderTarget.viewWidth;
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
-            if (effect == null) {
-                continue;
-            }
+            if (effect == null) continue;
 
             ResourceLocation passName = getPassName(pass);
             boolean expectsModelViewMatrix = passName != null && MODEL_VIEW_UNIFORM_PASSES.contains(passName);
 
             setMatrix(effect, "ProjMat", projection);
-            if (expectsModelViewMatrix) {
-                setMatrix(effect, "ModelViewMat", modelView);
-            }
+            if (expectsModelViewMatrix) setMatrix(effect, "ModelViewMat", modelView);
             setMatrix(effect, "InverseTransformMatrix", inverseProjection);
             setVec3(effect, "CameraPosition", cameraPos);
             setVec3(effect, "BlockPosition", targetPos);
@@ -270,12 +264,8 @@ public final class ClientEvents {
     }
 
     private static List<PostPass> getPasses() {
-        if (railgunChain == null) {
-            return Collections.emptyList();
-        }
-        if (PASSES_FIELD == null) {
-            return Collections.emptyList();
-        }
+        if (railgunChain == null) return Collections.emptyList();
+        if (PASSES_FIELD == null) return Collections.emptyList();
         try {
             Object value = PASSES_FIELD.get(railgunChain);
             if (value instanceof List<?> list) {
@@ -362,6 +352,7 @@ public final class ClientEvents {
         boolean charging = state.isCharging();
         boolean wasCharging = chargingLastTick;
 
+        // only play when charging flips false -> true
         if (charging && !wasCharging && ModSounds.SCOPE_ON.isPresent()) {
             playLocalPlayerSound(ModSounds.SCOPE_ON.get(), 1.0F, 1.0F);
         }
@@ -370,16 +361,11 @@ public final class ClientEvents {
     }
 
     private static void playLocalPlayerSound(SoundEvent sound, float volume, float pitch) {
-        if (sound == null) {
-            return;
-        }
+        if (sound == null) return;
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (player == null) {
-            return;
-        }
+        if (player == null) return;
+        // Local-only cue; do NOT pass SoundSource here
         player.playSound(sound, volume, pitch);
     }
-
 }
-

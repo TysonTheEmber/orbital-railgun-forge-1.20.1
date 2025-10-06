@@ -16,9 +16,9 @@ public final class ModSounds {
                 new ResourceLocation(ForgeOrbitalRailgunMod.MOD_ID, id)));
     }
 
-    public static final RegistryObject<SoundEvent> EQUIP         = sound("equip");
-    public static final RegistryObject<SoundEvent> SCOPE_ON      = sound("scope_on");
-    public static final RegistryObject<SoundEvent> RAILGUN_SHOOT = sound("railgun_shoot");
+    public static final RegistryObject<SoundEvent> EQUIP = sound("equip");
+    public static final RegistryObject<SoundEvent> SCOPE_ON = sound("scope-on");
+    public static final RegistryObject<SoundEvent> RAILGUN_SHOOT = sound("railgun-shoot");
 
     private ModSounds() {}
 }
