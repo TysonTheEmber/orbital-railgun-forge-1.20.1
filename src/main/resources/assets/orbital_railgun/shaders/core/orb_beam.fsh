@@ -7,7 +7,6 @@ uniform sampler2D Sampler0;
 out vec4 fragColor;
 
 void main() {
-    vec4 tex = texture(Sampler0, vUV);
-    // beam tint from vertex color; texture can be a 1x1 white mask
-    fragColor = vec4(tex.rgb * vColor.rgb, tex.a * vColor.a);
+    // Invisible in vanilla color; Iris/Oculus reads vColor via gbuffers.
+    fragColor = vec4(0.0, 0.0, 0.0, 0.0);
 }

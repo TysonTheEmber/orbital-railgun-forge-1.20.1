@@ -1,33 +1,17 @@
 {
-  "vertex": "orbital_railgun:orb_marker",
-  "fragment": "orbital_railgun:orb_marker",
-  "samplers": [
-    { "name": "Sampler0" }
-  ],
-  "attributes": ["Position", "Color", "UV0"],
-  "uniforms": [
-    {
-      "name": "ModelViewMat",
-      "type": "matrix4x4",
-      "count": 16,
-      "values": [1.0,0.0,0.0,0.0,
-        0.0,1.0,0.0,0.0,
-        0.0,0.0,1.0,0.0,
-        0.0,0.0,0.0,1.0]
-    },
-    {
-      "name": "ProjMat",
-      "type": "matrix4x4",
-      "count": 16,
-      "values": [1.0,0.0,0.0,0.0,
-        0.0,1.0,0.0,0.0,
-        0.0,0.0,1.0,0.0,
-        0.0,0.0,0.0,1.0]
-    }
-  ],
   "blend": {
     "func": "add",
     "srcrgb": "srcalpha",
-    "dstrgb": "1-srcalpha"
-  }
+    "dstrgb": "one"
+  },
+  "vertex": "orbital_railgun:shaders/core/orb_marker.vsh",
+  "fragment": "orbital_railgun:shaders/core/orb_marker.fsh",
+  "attributes": [ "Position", "Color", "UV0" ],
+  "samplers": [
+    { "name": "Sampler0" }
+  ],
+  "uniforms": [
+    { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+    { "name": "ProjMat",      "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] }
+  ]
 }
