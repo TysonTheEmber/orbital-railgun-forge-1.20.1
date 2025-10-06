@@ -62,8 +62,10 @@ public final class OrbitalRailgunStrikeManager {
         StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
         ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount()));
 
-        if (ModSounds.FIRE.isPresent()) {
-            serverLevel.playSound(null, target, ModSounds.FIRE.get(), SoundSource.PLAYERS, 4.0F, 1.0F);
+        if (ModSounds.RAILGUN_SHOOT.isPresent()) {
+            serverLevel.playSound(null,
+                    player.getX(), player.getY(), player.getZ(),
+                    ModSounds.RAILGUN_SHOOT.get(), SoundSource.PLAYERS, 1.6F, 1.0F);
         }
         Network.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(), 512.0D, serverLevel.dimension())), new S2C_PlayStrikeEffects(target, serverLevel.dimension()));
     }
