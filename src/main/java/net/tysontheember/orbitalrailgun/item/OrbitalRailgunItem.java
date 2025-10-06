@@ -21,7 +21,7 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class OrbitalRailgunItem extends Item implements GeoItem {
-    public static final int COOLDOWN_TICKS = 24; //Make config driven
+    public static final int COOLDOWN_TICKS = 2400; //Make config driven
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     public OrbitalRailgunItem(Properties properties) {
