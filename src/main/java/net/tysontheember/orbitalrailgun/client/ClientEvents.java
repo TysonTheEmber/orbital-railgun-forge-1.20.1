@@ -13,6 +13,7 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
@@ -61,8 +62,9 @@ public final class ClientEvents {
     private static boolean attackWasDown;
     private static boolean chargingLastTick;
 
-    // NEW: track previous main-hand stack to fire the 'equip' cue only on swap-to-railgun
-    private static ItemStack prevMainHand = ItemStack.EMPTY;
+    // Track only real hotbar/held-item changes (not stack mutations during use)
+    private static int prevSelectedSlot = -1;
+    private static Item prevMainHandItem = null;
 
     static {
         if (PASSES_FIELD != null) {
@@ -177,18 +179,31 @@ public final class ClientEvents {
 
         LocalPlayer player = minecraft.player;
 
-        // --- NEW: equip cue on swap to railgun (main hand) ---
+        // --- Equip cue ONLY on true held-item change (slot or item), not during scoping ---
         if (player != null) {
-            ItemStack current = player.getMainHandItem();
-            boolean wasRailgun = !prevMainHand.isEmpty() && prevMainHand.getItem() instanceof OrbitalRailgunItem;
-            boolean isRailgun  = !current.isEmpty() && current.getItem() instanceof OrbitalRailgunItem;
-            if (!wasRailgun && isRailgun && ModSounds.EQUIP.isPresent()) {
-                playLocalPlayerSound(ModSounds.EQUIP.get(), 1.0F, 1.0F);
+            int currentSlot = player.getInventory().selected;
+            Item currentItem = player.getMainHandItem().getItem();
+
+            if (prevSelectedSlot == -1) {
+                // First tick baseline; don't play sound
+                prevSelectedSlot = currentSlot;
+                prevMainHandItem = currentItem;
+            } else {
+                boolean slotChanged = currentSlot != prevSelectedSlot;
+                boolean itemChanged = currentItem != prevMainHandItem;
+
+                if ((slotChanged || itemChanged)
+                        && currentItem instanceof OrbitalRailgunItem
+                        && ModSounds.EQUIP.isPresent()) {
+                    playLocalPlayerSound(ModSounds.EQUIP.get(), 1.0F, 1.0F);
+                }
+
+                prevSelectedSlot = currentSlot;
+                prevMainHandItem = currentItem;
             }
-            prevMainHand = current;
         }
 
-        // scope_on on charging start
+        // scope_on on charging start (rising edge)
         handleChargeAudio(state);
 
         boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
@@ -365,7 +380,6 @@ public final class ClientEvents {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null) return;
-        // Local-only cue; do NOT pass SoundSource here
         player.playSound(sound, volume, pitch);
     }
 }

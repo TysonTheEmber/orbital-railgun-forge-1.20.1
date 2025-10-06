@@ -46,8 +46,8 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
         }
 
         player.startUsingItem(hand);
-        if (level.isClientSide && ModSounds.EQUIP.isPresent()) {
-            player.playSound(ModSounds.EQUIP.get(), 1.0F, 1.0F);
+        if (level.isClientSide && ModSounds.SCOPE_ON.isPresent()) {
+            player.playSound(ModSounds.SCOPE_ON.get(), 1.0F, 1.0F);
         }
         return InteractionResultHolder.consume(stack);
     }

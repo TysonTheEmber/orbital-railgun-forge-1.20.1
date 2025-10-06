@@ -17,8 +17,8 @@ public final class ModSounds {
     }
 
     public static final RegistryObject<SoundEvent> EQUIP = sound("equip");
-    public static final RegistryObject<SoundEvent> SCOPE_ON = sound("scope-on");
-    public static final RegistryObject<SoundEvent> RAILGUN_SHOOT = sound("railgun-shoot");
+    public static final RegistryObject<SoundEvent> SCOPE_ON = sound("scope_on");
+    public static final RegistryObject<SoundEvent> RAILGUN_SHOOT = sound("railgun_shoot");
 
     private ModSounds() {}
 }
