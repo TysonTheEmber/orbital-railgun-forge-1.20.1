@@ -8,10 +8,10 @@ uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;
 
 out vec4 vColor;
-out vec2 vUV;
+out vec2 vUv;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     vColor = Color;
-    vUV = UV0;
+    vUv = UV0;
 }

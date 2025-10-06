@@ -1,16 +1,16 @@
 #version 150
 
-in vec4 vColor;
-in vec2 vUV;
+uniform sampler2D Sampler0;
 
-uniform sampler2D MaskTex;
+in vec4 vColor;
+in vec2 vUv;
+
 uniform vec4 ColorModulator;
 
 out vec4 fragColor;
 
 void main() {
-    float m = texture(MaskTex, vUV).r;
-    vec4 col = vColor * ColorModulator;
-    col.a *= m;
-    fragColor = col;
+    vec4 tex = texture(Sampler0, vUv);
+    vec4 base = tex * vColor * ColorModulator;
+    fragColor = base;
 }
