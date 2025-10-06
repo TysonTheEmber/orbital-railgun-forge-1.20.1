@@ -37,7 +37,5 @@ public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension) 
         Minecraft mc = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.onStrikeStarted(packet.pos(), packet.dimension());
-
-        // Sound is handled server-side when the strike is triggered.
     }
 }
