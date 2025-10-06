@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.item;
 
 import net.tysontheember.orbitalrailgun.client.item.OrbitalRailgunRenderer;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -11,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.client.extensions.common.IClientItemExtensions;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
@@ -57,6 +59,9 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
 
     public void applyCooldown(Player player) {
         player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
+        if (!player.level().isClientSide && ModSounds.COOLDOWN.isPresent()) {
+            player.level().playSound(null, player.blockPosition(), ModSounds.COOLDOWN.get(), SoundSource.PLAYERS, 0.9F, 1.0F);
+        }
     }
 
     @Override

@@ -1,0 +1,78 @@
+{
+  "charge_start": {
+    "subtitle": "subtitles.orbital_railgun.charge_start",
+    "sounds": [
+      {
+        "name": "orbital_railgun:scope-on",
+        "volume": 0.9
+      }
+    ]
+  },
+  "charge_loop": {
+    "subtitle": "subtitles.orbital_railgun.charge_loop",
+    "sounds": [
+      {
+        "name": "orbital_railgun:scope-on",
+        "volume": 0.7,
+        "stream": true
+      }
+    ]
+  },
+  "fire": {
+    "subtitle": "subtitles.orbital_railgun.fire",
+    "sounds": [
+      {
+        "name": "orbital_railgun:railgun-shoot",
+        "volume": 1.0
+      }
+    ]
+  },
+  "impact": {
+    "subtitle": "subtitles.orbital_railgun.impact",
+    "sounds": [
+      {
+        "name": "orbital_railgun:railgun-shoot",
+        "volume": 1.1,
+        "pitch": 0.85
+      }
+    ]
+  },
+  "cooldown": {
+    "subtitle": "subtitles.orbital_railgun.cooldown",
+    "sounds": [
+      {
+        "name": "orbital_railgun:equip",
+        "volume": 0.75,
+        "pitch": 0.95
+      }
+    ]
+  },
+  "lock": {
+    "subtitle": "subtitles.orbital_railgun.lock",
+    "sounds": [
+      {
+        "name": "orbital_railgun:scope-on",
+        "volume": 0.8,
+        "pitch": 1.1
+      }
+    ]
+  },
+  "equip": {
+    "subtitle": "subtitles.orbital_railgun.equip",
+    "sounds": [
+      "orbital_railgun:equip"
+    ]
+  },
+  "scope_on": {
+    "subtitle": "subtitles.orbital_railgun.scope_on",
+    "sounds": [
+      "orbital_railgun:scope-on"
+    ]
+  },
+  "railgun_shoot": {
+    "subtitle": "subtitles.orbital_railgun.railgun_shoot",
+    "sounds": [
+      "orbital_railgun:railgun-shoot"
+    ]
+  }
+}

@@ -3,9 +3,11 @@ package net.tysontheember.orbitalrailgun.client;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.client.sound.RailgunLoopSound;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import com.mojang.blaze3d.shaders.Uniform;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -17,6 +19,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraft.util.RandomSource;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -56,6 +61,8 @@ public final class ClientEvents {
     private static int chainHeight = -1;
 
     private static boolean attackWasDown;
+    private static RailgunLoopSound chargeLoopSound;
+    private static RailgunState.HitKind lastLockState = RailgunState.HitKind.NONE;
 
     static {
         if (PASSES_FIELD != null) {
@@ -182,6 +189,7 @@ public final class ClientEvents {
         state.tick(minecraft);
 
         LocalPlayer player = minecraft.player;
+        handleChargeAudio(state, player);
         boolean attackDown = player != null && minecraft.options != null && minecraft.options.keyAttack.isDown();
         if (attackDown && !attackWasDown && state.canRequestFire(player)) {
             attemptFire(minecraft, state, player);
@@ -203,6 +211,10 @@ public final class ClientEvents {
             return;
         }
 
+        stopChargeLoop();
+        if (ModSounds.FIRE.isPresent()) {
+            playLocalPlayerSound(ModSounds.FIRE.get(), 1.0F, randomPitch(player.getRandom()));
+        }
         item.applyCooldown(player);
         minecraft.gameMode.releaseUsingItem(player);
         state.markFired();
@@ -352,5 +364,68 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+    }
+
+    private static void handleChargeAudio(RailgunState state, LocalPlayer player) {
+        boolean charging = state.isCharging();
+        boolean wasCharging = state.wasChargingLastTick();
+
+        if (charging && !wasCharging) {
+            if (ModSounds.CHARGE_START.isPresent()) {
+                playLocalPlayerSound(ModSounds.CHARGE_START.get(), 0.9F, randomPitch(player != null ? player.getRandom() : RandomSource.create()));
+            }
+            startChargeLoop(player);
+            lastLockState = RailgunState.HitKind.NONE;
+        } else if (!charging && wasCharging) {
+            stopChargeLoop();
+            lastLockState = RailgunState.HitKind.NONE;
+        }
+
+        if (charging) {
+            if (player != null && chargeLoopSound == null) {
+                startChargeLoop(player);
+            }
+
+            RailgunState.HitKind hitKind = state.getHitKind();
+            if (hitKind != RailgunState.HitKind.NONE && lastLockState == RailgunState.HitKind.NONE && ModSounds.LOCK.isPresent()) {
+                playLocalPlayerSound(ModSounds.LOCK.get(), 0.8F, randomPitch(player != null ? player.getRandom() : RandomSource.create()));
+            }
+            lastLockState = hitKind;
+        }
+    }
+
+    private static void startChargeLoop(LocalPlayer player) {
+        if (player == null || chargeLoopSound != null || !ModSounds.CHARGE_LOOP.isPresent()) {
+            return;
+        }
+        RailgunLoopSound loop = new RailgunLoopSound(player);
+        chargeLoopSound = loop;
+        Minecraft.getInstance().getSoundManager().play(loop);
+    }
+
+    private static void stopChargeLoop() {
+        if (chargeLoopSound != null) {
+            chargeLoopSound.beginFadeOut();
+            chargeLoopSound = null;
+        }
+    }
+
+    private static void playLocalPlayerSound(SoundEvent sound, float volume, float pitch) {
+        if (sound == null) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (player == null) {
+            return;
+        }
+        player.playSound(sound, volume, pitch);
+    }
+
+    private static float randomPitch(RandomSource random) {
+        if (random == null) {
+            return 1.0F;
+        }
+        return (float) random.triangle(1.0F, 0.03F);
     }
 }

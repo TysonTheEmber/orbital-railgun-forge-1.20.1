@@ -36,6 +36,8 @@ public final class RailgunState {
     private HitResult currentHit;
     private OrbitalRailgunItem activeRailgun;
 
+    private boolean lastCharging;
+
     private boolean strikeActive;
     private int strikeTicks;
     private Vec3 strikePos = Vec3.ZERO;
@@ -58,6 +60,7 @@ public final class RailgunState {
         }
 
         boolean wasCharging = charging;
+        lastCharging = wasCharging;
         charging = player != null && activeRailgun != null && player.isUsingItem();
 
         if (charging) {
@@ -173,8 +176,23 @@ public final class RailgunState {
         return charging;
     }
 
+    public boolean wasChargingLastTick() {
+        return lastCharging;
+    }
+
     public float getChargeSeconds(float partialTicks) {
         return (chargeTicks + partialTicks) / 20.0F;
+    }
+
+    public float getChargeProgress() {
+        if (!charging) {
+            return 0.0F;
+        }
+        return Math.min(chargeTicks / 40.0F, 1.0F);
+    }
+
+    public static float getClientChargeProgress() {
+        return INSTANCE.getChargeProgress();
     }
 
     public float getCooldownPercent() {

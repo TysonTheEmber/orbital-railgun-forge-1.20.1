@@ -7,12 +7,12 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 
 import java.util.function.Supplier;
 
@@ -40,8 +40,8 @@ public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension) 
         RailgunState state = RailgunState.getInstance();
         state.onStrikeStarted(packet.pos(), packet.dimension());
 
-        if (mc.level != null && mc.player != null) {
-            mc.level.playLocalSound(packet.pos(), SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 5.0F, 0.5F, false);
+        if (mc.level != null && mc.player != null && ModSounds.IMPACT.isPresent()) {
+            mc.level.playLocalSound(packet.pos(), ModSounds.IMPACT.get(), SoundSource.PLAYERS, 4.5F, 1.0F, false);
         }
     }
 }

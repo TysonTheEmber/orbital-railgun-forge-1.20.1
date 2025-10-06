@@ -2,6 +2,7 @@ package net.tysontheember.orbitalrailgun.util;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
+import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.network.S2C_PlayStrikeEffects;
 import net.minecraft.core.BlockPos;
@@ -10,7 +11,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
@@ -62,7 +62,9 @@ public final class OrbitalRailgunStrikeManager {
         StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
         ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount()));
 
-        serverLevel.playSound(null, target, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.PLAYERS, 8.0F, 0.6F);
+        if (ModSounds.FIRE.isPresent()) {
+            serverLevel.playSound(null, target, ModSounds.FIRE.get(), SoundSource.PLAYERS, 4.0F, 1.0F);
+        }
         Network.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(), 512.0D, serverLevel.dimension())), new S2C_PlayStrikeEffects(target, serverLevel.dimension()));
     }
 
