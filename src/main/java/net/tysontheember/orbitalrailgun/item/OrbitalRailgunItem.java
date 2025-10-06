@@ -21,7 +21,6 @@ import software.bernie.geckolib.util.GeckoLibUtil;
 import java.util.function.Consumer;
 
 public class OrbitalRailgunItem extends Item implements GeoItem {
-    public static final int COOLDOWN_TICKS = 2400; //Make config driven
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     public OrbitalRailgunItem(Properties properties) {
@@ -30,7 +29,7 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
 
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
-        return UseAnim.SPYGLASS;
+        return UseAnim.NONE;
     }
 
     @Override
@@ -60,7 +59,15 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
     }
 
     public void applyCooldown(Player player) {
-        player.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
+        int ticks = Math.max(0, net.tysontheember.orbitalrailgun.config.OrbitalConfig.COOLDOWN.get());
+
+        // Prefer server-side so the ClientboundCooldownPacket is sent automatically.
+        if (player instanceof net.minecraft.server.level.ServerPlayer sp) {
+            sp.getCooldowns().addCooldown(this, ticks);
+        } else {
+            // Fallback (e.g., if called client-side by mistake)
+            player.getCooldowns().addCooldown(this, ticks);
+        }
     }
 
     @Override
