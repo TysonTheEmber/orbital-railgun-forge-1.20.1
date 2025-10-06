@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.util;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.config.OrbitalRailgunConfig;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -9,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
@@ -18,11 +20,13 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.network.PacketDistributor;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.joml.Vector2i;
 
 import java.util.ArrayList;
@@ -144,8 +148,27 @@ public final class OrbitalRailgunStrikeManager {
                 for (int z = -RADIUS; z <= RADIUS; z++) {
                     if (MASK[x + RADIUS][z + RADIUS]) {
                         mutable.set(center.getX() + x, y, center.getZ() + z);
-                        if (!OrbitalRailgunConfig.COMMON.breakBedrock.get()
-                            && level.getBlockState(mutable).is(Blocks.BEDROCK)) {
+                        BlockState state = level.getBlockState(mutable);
+                        if (state.isAir()) {
+                            continue;
+                        }
+                        if (!OrbitalRailgunConfig.COMMON.breakBedrock.get() && state.is(Blocks.BEDROCK)) {
+                            continue;
+                        }
+                        ResourceLocation id = ForgeRegistries.BLOCKS.getKey(state.getBlock());
+                        double hardness = state.getDestroySpeed(level, mutable);
+                        if (id != null && OrbitalConfig.isBlockBlacklisted(id.toString())) {
+                            ForgeOrbitalRailgunMod.LOGGER.info("[OrbitalStrike] Skipped blacklisted block: {}", id);
+                            continue;
+                        }
+                        double maxHardness = OrbitalConfig.getMaxBreakHardness();
+                        if (hardness > maxHardness) {
+                            ForgeOrbitalRailgunMod.LOGGER.info(
+                                "[OrbitalStrike] Skipped block due to hardness: {} ({} > {})",
+                                id,
+                                hardness,
+                                maxHardness
+                            );
                             continue;
                         }
                         level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
