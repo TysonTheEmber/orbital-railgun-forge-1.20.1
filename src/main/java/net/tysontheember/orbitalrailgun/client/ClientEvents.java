@@ -50,7 +50,8 @@ public final class ClientEvents {
     private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
-            ForgeOrbitalRailgunMod.id("gui")
+            ForgeOrbitalRailgunMod.id("gui"),
+            ForgeOrbitalRailgunMod.id("chromatic_abjuration")
     );
 
     private static PostChain railgunChain;

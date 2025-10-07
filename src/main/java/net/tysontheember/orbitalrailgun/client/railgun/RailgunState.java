@@ -50,11 +50,9 @@ public final class RailgunState {
     }
 
     public void tick(Minecraft minecraft) {
-        // >>> Freeze ALL state progression while paused (prevents early cutoff on resume)
         if (minecraft.isPaused()) {
             return;
         }
-        // <<<
 
         LocalPlayer player = minecraft.player;
         activeRailgun = getActiveRailgun(player);
@@ -72,12 +70,8 @@ public final class RailgunState {
         if (charging) {
             chargeTicks++;
             requestedFire = requestedFire && player.isUsingItem();
-            updateHudHidden(minecraft, true);
             updateHitInformation(minecraft, player);
         } else {
-            if (wasCharging) {
-                updateHudHidden(minecraft, false);
-            }
             chargeTicks = 0;
             requestedFire = false;
             hitKind = HitKind.NONE;
@@ -93,22 +87,6 @@ public final class RailgunState {
             } else if (minecraft.level == null || minecraft.level.dimension() != strikeDimension) {
                 clearStrike();
             }
-        }
-    }
-
-    private void updateHudHidden(Minecraft minecraft, boolean hide) {
-        if (minecraft.options == null) {
-            return;
-        }
-
-        if (hide) {
-            if (!hudHidden) {
-                hudHidden = true;
-            }
-            minecraft.options.hideGui = true;
-        } else if (hudHidden) {
-            minecraft.options.hideGui = false;
-            hudHidden = false;
         }
     }
 
