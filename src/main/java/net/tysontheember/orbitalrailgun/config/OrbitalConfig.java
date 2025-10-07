@@ -22,7 +22,7 @@ public final class OrbitalConfig {
             .defineInRange("maxBreakHardness", 50.0D, -1.0D, Double.MAX_VALUE);
         COOLDOWN = builder
             .comment("Cooldown of the Railgun in ticks")
-            .defineInRange("cooldown", 24000, 18000, Integer.MAX_VALUE);
+            .defineInRange("cooldown", 2400, 1800, Integer.MAX_VALUE);
         STRIKE_DAMAGE = builder
             .comment("Damage of the Orbital Strike")
             .defineInRange("strikeDamage", Integer.MAX_VALUE, 0, Integer.MAX_VALUE);

@@ -14,7 +14,6 @@ import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -66,6 +65,16 @@ public final class ClientEvents {
     private static int prevSelectedSlot = -1;
     private static Item prevMainHandItem = null;
 
+    // --- Freeze/latch state for pause ---
+    private static boolean pausedLatched = false;        // are we rendering from a paused snapshot?
+    private static boolean latchedStrike = false;        // was strike active when we latched?
+    private static boolean latchedCharge = false;        // was charge active when we latched?
+    private static Vec3 latchedTargetPos = Vec3.ZERO;    // hit/strike position at latch
+    private static float latchedDistance = 0f;           // distance at latch
+    private static int latchedHitKind = 0;               // RailgunState.HitKind ordinal at latch
+    private static float latchedTime = 0f;               // effect seconds at latch (held steady)
+    private static float lastVisibleEffectSeconds = 0f;  // live seconds (for caching before latch)
+
     static {
         if (PASSES_FIELD != null) {
             PASSES_FIELD.setAccessible(true);
@@ -79,16 +88,23 @@ public final class ClientEvents {
 
     private static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(new SimplePreparableReloadListener<Void>() {
-            @Override
-            protected Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) {
-                return null;
-            }
-
-            @Override
-            protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
+            @Override protected Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) { return null; }
+            @Override protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
                 ClientEvents.reloadChain(resourceManager);
+                clearPauseLatch();
             }
         });
+    }
+
+    private static void clearPauseLatch() {
+        pausedLatched = false;
+        latchedStrike = false;
+        latchedCharge = false;
+        latchedTargetPos = Vec3.ZERO;
+        latchedDistance = 0f;
+        latchedHitKind = 0;
+        lastVisibleEffectSeconds = 0f;
+        latchedTime = 0f;
     }
 
     private static void reloadChain(ResourceManager resourceManager) {
@@ -143,30 +159,99 @@ public final class ClientEvents {
 
         RailgunState state = RailgunState.getInstance();
         Level level = minecraft.level;
-        boolean strikeActive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
-        boolean chargeActive = state.isCharging();
-        if (!strikeActive && !chargeActive) return;
+
+        boolean strikeActiveLive = state.isStrikeActive() && state.getStrikeDimension() != null && state.getStrikeDimension().equals(level.dimension());
+        boolean chargeActiveLive = state.isCharging();
+        boolean anyActiveLive = strikeActiveLive || chargeActiveLive;
 
         resizeChain(minecraft);
 
-        float timeSeconds = strikeActive
-                ? state.getStrikeSeconds(event.getPartialTick())
-                : state.getChargeSeconds(event.getPartialTick());
+        boolean paused = minecraft.isPaused();
+        float partial = paused ? 0f : event.getPartialTick();
 
+        // ---- Latch a snapshot on the first paused frame while the effect is active ----
+        if (paused && anyActiveLive && !pausedLatched) {
+            pausedLatched = true;
+            latchedStrike = strikeActiveLive;
+            latchedCharge = chargeActiveLive;
+
+            float effectSecondsLive = strikeActiveLive
+                    ? state.getStrikeSeconds(0f)
+                    : state.getChargeSeconds(0f);
+            lastVisibleEffectSeconds = effectSecondsLive; // cache last visible
+            latchedTime = lastVisibleEffectSeconds;
+
+            Vec3 liveTarget = strikeActiveLive ? state.getStrikePos() : state.getHitPos();
+            latchedTargetPos = liveTarget == null ? Vec3.ZERO : liveTarget;
+
+            Vec3 cam = event.getCamera().getPosition();
+            latchedDistance = (float) (latchedTargetPos == null ? 0.0 : cam.distanceTo(latchedTargetPos));
+
+            latchedHitKind = state.getHitKind().ordinal();
+        }
+
+        // ---- If paused and latched, render from the snapshot and ignore live state ----
+        boolean renderStrike, renderCharge;
+        Vec3 targetPos;
+        float distance;
+        int hitKindOrdinal;
+        float effectSeconds;
+
+        if (paused && pausedLatched) {
+            renderStrike = latchedStrike;
+            renderCharge = latchedCharge;
+            targetPos = latchedTargetPos;
+            distance = latchedDistance;
+            hitKindOrdinal = latchedHitKind;
+            effectSeconds = latchedTime; // freeze time
+        } else {
+            // Not paused (or no latch) -> use live state
+            if (!anyActiveLive) {
+                // nothing to draw
+                // also clear any stale latch if we weren't paused
+                if (!paused) clearPauseLatch();
+                return;
+            }
+
+            renderStrike = strikeActiveLive;
+            renderCharge = chargeActiveLive;
+
+            effectSeconds = renderStrike
+                    ? state.getStrikeSeconds(partial)
+                    : state.getChargeSeconds(partial);
+
+            if (!paused) lastVisibleEffectSeconds = effectSeconds;
+
+            targetPos = renderStrike ? state.getStrikePos() : state.getHitPos();
+            if (targetPos == null) targetPos = Vec3.ZERO;
+
+            Vec3 cam = event.getCamera().getPosition();
+            distance = (float) cam.distanceTo(targetPos);
+
+            hitKindOrdinal = state.getHitKind().ordinal();
+
+            // if we've just unpaused, drop the latch so we resume live immediately
+            if (!paused && pausedLatched) clearPauseLatch();
+        }
+
+        // ---- Upload uniforms and render ----
         Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
         Matrix4f inverseProjection = new Matrix4f(projection).invert();
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
         Vec3 cameraPos = event.getCamera().getPosition();
 
-        Vec3 targetPos = strikeActive ? state.getStrikePos() : state.getHitPos();
-        float distance = strikeActive
-                ? (float) cameraPos.distanceTo(state.getStrikePos())
-                : state.getHitDistance();
-        float isBlockHit = state.getHitKind() != RailgunState.HitKind.NONE ? 1.0F : 0.0F;
+        applyUniforms(
+                modelView, projection, inverseProjection,
+                cameraPos, targetPos,
+                distance, effectSeconds,
+                /* isBlockHit */ (hitKindOrdinal != RailgunState.HitKind.NONE.ordinal()) ? 1.0F : 0.0F,
+                renderStrike,
+                state,
+                hitKindOrdinal
+        );
 
-        applyUniforms(modelView, projection, inverseProjection, cameraPos, targetPos, distance, timeSeconds, isBlockHit, strikeActive, state);
-
-        railgunChain.process(event.getPartialTick());
+        // Freeze PostChain internal time while paused
+        railgunChain.process(partial);
     }
 
     @SubscribeEvent
@@ -185,7 +270,6 @@ public final class ClientEvents {
             Item currentItem = player.getMainHandItem().getItem();
 
             if (prevSelectedSlot == -1) {
-                // First tick baseline; don't play sound
                 prevSelectedSlot = currentSlot;
                 prevMainHandItem = currentItem;
             } else {
@@ -223,7 +307,6 @@ public final class ClientEvents {
         OrbitalRailgunItem item = state.getActiveRailgunItem();
         if (item == null) return;
 
-        // Client-side cooldown & release; server will validate and broadcast shoot sound
         item.applyCooldown(player);
         minecraft.gameMode.releaseUsingItem(player);
         state.markFired();
@@ -238,8 +321,13 @@ public final class ClientEvents {
         }
     }
 
-    private static void applyUniforms(Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection, Vec3 cameraPos, Vec3 targetPos,
-                                      float distance, float timeSeconds, float isBlockHit, boolean strikeActive, RailgunState state) {
+    private static void applyUniforms(
+            Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection,
+            Vec3 cameraPos, Vec3 targetPos,
+            float distance, float timeSeconds,
+            float isBlockHit, boolean strikeActive,
+            RailgunState state, int hitKindOrdinal
+    ) {
         List<PostPass> passes = getPasses();
         if (passes.isEmpty()) return;
 
@@ -264,12 +352,20 @@ public final class ClientEvents {
             setVec3(effect, "BlockPosition", targetPos);
             setVec3(effect, "HitPos", targetPos);
             setVec2(effect, "OutSize", width, height);
+
+            // Authoritative time (frozen during pause via latch)
             setFloat(effect, "iTime", timeSeconds);
+            // Mirror to prevent any pass from advancing independently
+            setFloat(effect, "Time", timeSeconds);
+            setFloat(effect, "GameTime", timeSeconds);
+            setFloat(effect, "iGlobalTime", timeSeconds);
+            setFloat(effect, "FrameTimeCounter", timeSeconds);
+
             setFloat(effect, "Distance", distance);
             setFloat(effect, "IsBlockHit", isBlockHit);
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
             setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
-            setInt(effect, "HitKind", state.getHitKind().ordinal());
+            setInt(effect, "HitKind", hitKindOrdinal);
         }
     }
 

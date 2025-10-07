@@ -50,6 +50,12 @@ public final class RailgunState {
     }
 
     public void tick(Minecraft minecraft) {
+        // >>> Freeze ALL state progression while paused (prevents early cutoff on resume)
+        if (minecraft.isPaused()) {
+            return;
+        }
+        // <<<
+
         LocalPlayer player = minecraft.player;
         activeRailgun = getActiveRailgun(player);
 
