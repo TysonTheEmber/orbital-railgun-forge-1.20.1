@@ -27,6 +27,7 @@ import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.client.event.ViewportEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
@@ -81,12 +82,20 @@ public final class ClientEvents {
     private static boolean hudHiddenDuringCharge = false;
     private static boolean prevHideGuiValue = false;
 
+    // --- Iris/Oculus shaderpack compat state ---
+    private static boolean haveIris = false;
+    private static boolean lastShaderpackActive = false;
+
     static {
         if (PASSES_FIELD != null) {
             PASSES_FIELD.setAccessible(true);
         } else {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to locate orbital railgun post chain passes field");
         }
+        // Detect Iris/Oculus once at class load
+        haveIris = ModList.get().isLoaded("oculus") || ModList.get().isLoaded("iris");
+        lastShaderpackActive = queryIrisShaderpackInUse();
+
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientEvents::onRegisterReloadListeners);
     }
 
@@ -96,8 +105,15 @@ public final class ClientEvents {
         event.registerReloadListener(new SimplePreparableReloadListener<Void>() {
             @Override protected Void prepare(ResourceManager resourceManager, ProfilerFiller profiler) { return null; }
             @Override protected void apply(Void object, ResourceManager resourceManager, ProfilerFiller profiler) {
-                ClientEvents.reloadChain(resourceManager);
-                clearPauseLatch();
+                // If a shaderpack is active, keep our chain torn down; otherwise (re)load it.
+                if (isShaderpackActive()) {
+                    closeChain();
+                    clearPauseLatch();
+                    ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active — skipping PostChain build on reload.");
+                } else {
+                    ClientEvents.reloadChain(resourceManager);
+                    clearPauseLatch();
+                }
             }
         });
     }
@@ -114,6 +130,13 @@ public final class ClientEvents {
     }
 
     private static void reloadChain(ResourceManager resourceManager) {
+        if (isShaderpackActive()) {
+            // Hard guard: never build while a shaderpack is running.
+            closeChain();
+            chainReady = false;
+            return;
+        }
+
         Minecraft minecraft = Minecraft.getInstance();
         closeChain();
         if (minecraft.getMainRenderTarget() == null) {
@@ -127,6 +150,7 @@ public final class ClientEvents {
             chainWidth = -1;
             chainHeight = -1;
             resizeChain(minecraft);
+            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Built PostChain (no shaderpack active).");
         } catch (IOException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
             chainReady = false;
@@ -151,12 +175,16 @@ public final class ClientEvents {
 
     @SubscribeEvent
     public static void onScreenRender(ScreenEvent.Render.Post event) {
+        if (isShaderpackActive()) return; // skip any PostChain handling while shaderpack active
         if (!chainReady || railgunChain == null) return;
         resizeChain(Minecraft.getInstance());
     }
 
     @SubscribeEvent
     public static void onRenderStage(RenderLevelStageEvent event) {
+        // If a shaderpack is active, **do not** run our post chain at all.
+        if (isShaderpackActive()) return;
+
         if (!chainReady || railgunChain == null) return;
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
 
@@ -266,6 +294,21 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
+
+        // Watch for shaderpack state flips at runtime and rebuild/teardown accordingly.
+        if (pollIrisStateChanged()) {
+            if (isShaderpackActive()) {
+                // Shaderpack just turned ON -> tear down our chain
+                closeChain();
+                ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack enabled — tearing down PostChain.");
+            } else {
+                // Shaderpack just turned OFF -> (re)build our chain
+                ResourceManager rm = Minecraft.getInstance().getResourceManager();
+                reloadChain(rm);
+                ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack disabled — rebuilding PostChain.");
+            }
+            clearPauseLatch();
+        }
 
         Minecraft minecraft = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
@@ -520,6 +563,37 @@ public final class ClientEvents {
         if (mc.level == null && hudHiddenDuringCharge) {
             mc.options.hideGui = prevHideGuiValue;
             hudHiddenDuringCharge = false;
+        }
+    }
+
+    // ===== Iris/Oculus compat (reflection) =====
+
+    /** True if Oculus/Iris is present AND a shaderpack is currently in use. */
+    private static boolean isShaderpackActive() {
+        if (!haveIris) return false;
+        return lastShaderpackActive;
+    }
+
+    /** Poll Iris and update internal state; return true if active/inactive changed since last check. */
+    private static boolean pollIrisStateChanged() {
+        if (!haveIris) return false;
+        boolean now = queryIrisShaderpackInUse();
+        boolean changed = (now != lastShaderpackActive);
+        lastShaderpackActive = now;
+        return changed;
+    }
+
+    /** Reflection call to Iris API: net.irisshaders.iris.api.v0.IrisApi#isShaderPackInUse() */
+    private static boolean queryIrisShaderpackInUse() {
+        if (!haveIris) return false;
+        try {
+            Class<?> apiClass = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
+            Object api = apiClass.getMethod("getInstance").invoke(null);
+            Object result = apiClass.getMethod("isShaderPackInUse").invoke(api);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Throwable t) {
+            // If the API isn't available or throws, fail safe (treat as not active).
+            return false;
         }
     }
 }
