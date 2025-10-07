@@ -20,6 +20,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.client.event.ScreenEvent;
@@ -75,6 +76,10 @@ public final class ClientEvents {
     private static int latchedHitKind = 0;               // RailgunState.HitKind ordinal at latch
     private static float latchedTime = 0f;               // effect seconds at latch (held steady)
     private static float lastVisibleEffectSeconds = 0f;  // live seconds (for caching before latch)
+
+    // --- HUD toggle while charging (F1-like) ---
+    private static boolean hudHiddenDuringCharge = false;
+    private static boolean prevHideGuiValue = false;
 
     static {
         if (PASSES_FIELD != null) {
@@ -251,8 +256,11 @@ public final class ClientEvents {
                 hitKindOrdinal
         );
 
-        // Freeze PostChain internal time while paused
+        // Process the post chain
         railgunChain.process(partial);
+
+        // Ensure subsequent passes (like hands) render to the correct framebuffer.
+        Minecraft.getInstance().getMainRenderTarget().bindWrite(false);
     }
 
     @SubscribeEvent
@@ -262,6 +270,9 @@ public final class ClientEvents {
         Minecraft minecraft = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.tick(minecraft);
+
+        // Hide/show HUD exactly while charging
+        updateHudHiddenForCharge(minecraft, state);
 
         LocalPlayer player = minecraft.player;
 
@@ -296,6 +307,16 @@ public final class ClientEvents {
             attemptFire(minecraft, state, player);
         }
         attackWasDown = attackDown;
+    }
+
+    // Safety: restore HUD on logout/disconnect
+    @SubscribeEvent
+    public static void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (hudHiddenDuringCharge) {
+            mc.options.hideGui = prevHideGuiValue;
+            hudHiddenDuringCharge = false;
+        }
     }
 
     private static void attemptFire(Minecraft minecraft, RailgunState state, LocalPlayer player) {
@@ -478,5 +499,27 @@ public final class ClientEvents {
         LocalPlayer player = minecraft.player;
         if (player == null) return;
         player.playSound(sound, volume, pitch);
+    }
+
+    // --- HUD toggle helper ---
+    private static void updateHudHiddenForCharge(Minecraft mc, RailgunState state) {
+        boolean charging = state.isCharging();
+
+        if (charging && !hudHiddenDuringCharge) {
+            // Latch previous F1 state and hide HUD
+            prevHideGuiValue = mc.options.hideGui;
+            mc.options.hideGui = true;
+            hudHiddenDuringCharge = true;
+        } else if (!charging && hudHiddenDuringCharge) {
+            // Restore exactly what the player had before charging
+            mc.options.hideGui = prevHideGuiValue;
+            hudHiddenDuringCharge = false;
+        }
+
+        // Safety: if world vanished (dimension change/logout) restore
+        if (mc.level == null && hudHiddenDuringCharge) {
+            mc.options.hideGui = prevHideGuiValue;
+            hudHiddenDuringCharge = false;
+        }
     }
 }
