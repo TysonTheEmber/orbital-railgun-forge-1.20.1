@@ -40,8 +40,6 @@ public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension, 
         Minecraft mc = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.onStrikeStarted(packet.pos(), packet.dimension());
-        if (OrbitalConfig.SYNC_SHADER_DIAMETER_WITH_SERVER.get()) {
-            state.setTransientVisualStrikeRadius(packet.serverStrikeRadius(), 40);
-        }
+        state.setTransientVisualStrikeRadius(packet.serverStrikeRadius(), 40);
     }
 }

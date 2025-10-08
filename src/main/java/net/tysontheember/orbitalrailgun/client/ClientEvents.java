@@ -405,7 +405,7 @@ public final class ClientEvents {
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
         float strikeRadius = state.getTransientVisualStrikeRadius()
-                .orElse((float) (OrbitalConfig.SHADER_DIAMETER.get() * 0.5D));
+                .orElse((float) (OrbitalConfig.DESTRUCTION_DIAMETER.get() * 0.5D));
 
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
