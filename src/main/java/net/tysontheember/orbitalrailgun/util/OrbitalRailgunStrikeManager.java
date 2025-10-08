@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.util;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.compat.FTBChunksCompat;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -12,7 +13,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
@@ -33,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 public final class OrbitalRailgunStrikeManager {
     private static final int RADIUS = 24;
@@ -41,6 +45,7 @@ public final class OrbitalRailgunStrikeManager {
     private static final ResourceKey<DamageType> STRIKE_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, ForgeOrbitalRailgunMod.id("strike"));
 
     private static final Map<StrikeKey, ActiveStrike> ACTIVE_STRIKES = new ConcurrentHashMap<>();
+    private static final Map<UUID, Integer> LAST_BLOCKED_MESSAGE_TICK = new ConcurrentHashMap<>();
 
     static {
         for (int x = -RADIUS; x <= RADIUS; x++) {
@@ -63,7 +68,7 @@ public final class OrbitalRailgunStrikeManager {
         }
         List<Entity> tracked = new ArrayList<>(serverLevel.getEntities(null, AABB.ofSize(Vec3.atCenterOf(target), 1000.0D, 1000.0D, 1000.0D)));
         StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
-        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount()));
+        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount(), player.getUUID()));
 
         if (ModSounds.RAILGUN_SHOOT.isPresent()) {
             serverLevel.playSound(null,
@@ -82,16 +87,18 @@ public final class OrbitalRailgunStrikeManager {
             Map.Entry<StrikeKey, ActiveStrike> entry = iterator.next();
             ActiveStrike strike = entry.getValue();
             Level level = event.getServer().getLevel(strike.key.dimension());
-            if (level == null) {
+            if (!(level instanceof ServerLevel serverLevel)) {
                 iterator.remove();
                 continue;
             }
 
             int age = event.getServer().getTickCount() - strike.startTick;
+            int currentTick = event.getServer().getTickCount();
+            ServerPlayer shooter = strike.getShooter(event.getServer());
             if (age >= 700) {
                 iterator.remove();
-                damageEntities(level, strike, age);
-                explode(level, strike.key.pos());
+                damageEntities(serverLevel, strike, age, shooter, currentTick);
+                explode(serverLevel, strike.key.pos(), shooter, currentTick);
             } else if (age >= 400 && OrbitalConfig.SUCK_ENTITIES.get()) {
                 pushEntities(level, strike, age);
             }
@@ -119,7 +126,7 @@ public final class OrbitalRailgunStrikeManager {
         }
     }
 
-    private static void damageEntities(Level level, ActiveStrike strike, int age) {
+    private static void damageEntities(ServerLevel level, ActiveStrike strike, int age, ServerPlayer shooter, int currentTick) {
         Vec3 center = Vec3.atCenterOf(strike.key.pos());
         Holder<DamageType> damageType = level.registryAccess()
             .registryOrThrow(Registries.DAMAGE_TYPE)
@@ -130,17 +137,48 @@ public final class OrbitalRailgunStrikeManager {
             return;
         }
         float damage = (float) configuredDamage;
+        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get();
+        boolean allowEntityDamage = OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get();
         for (Entity entity : strike.entities) {
             if (entity == null || !entity.isAlive() || entity.level() != level) {
                 continue;
             }
             if (entity.position().distanceToSqr(center) <= RADIUS_SQUARED) {
+                if (respectClaims) {
+                    boolean claimed = FTBChunksCompat.isPositionClaimed(level, entity.blockPosition());
+                    if (claimed) {
+                        if (!allowEntityDamage) {
+                            notifyBlocked(shooter, currentTick);
+                            continue;
+                        }
+                        if (!FTBChunksCompat.canDamageEntity(level, entity, shooter)) {
+                            notifyBlocked(shooter, currentTick);
+                            continue;
+                        }
+                    }
+                }
                 entity.hurt(source, damage);
             }
         }
     }
 
-    private static void explode(Level level, BlockPos center) {
+    private static void explode(ServerLevel level, BlockPos center, ServerPlayer shooter, int currentTick) {
+        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get();
+        boolean allowExplosions = OrbitalConfig.ALLOW_EXPLOSIONS_IN_CLAIMS.get();
+        boolean allowBlockBreaks = OrbitalConfig.ALLOW_BLOCK_BREAK_IN_CLAIMS.get();
+        if (respectClaims) {
+            boolean claimedCenter = FTBChunksCompat.isPositionClaimed(level, center);
+            if (claimedCenter) {
+                if (!allowExplosions) {
+                    notifyBlocked(shooter, currentTick);
+                    return;
+                }
+                if (!FTBChunksCompat.canExplode(level, center, shooter)) {
+                    notifyBlocked(shooter, currentTick);
+                    return;
+                }
+            }
+        }
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         for (int y = level.getMinBuildHeight(); y <= level.getMaxBuildHeight(); y++) {
             for (int x = -RADIUS; x <= RADIUS; x++) {
@@ -180,10 +218,41 @@ public final class OrbitalRailgunStrikeManager {
                     }
 
                     // Break the block
+                    if (respectClaims) {
+                        boolean claimed = FTBChunksCompat.isPositionClaimed(level, mutable);
+                        if (claimed) {
+                            if (!allowBlockBreaks) {
+                                notifyBlocked(shooter, currentTick);
+                                continue;
+                            }
+                            if (!FTBChunksCompat.canModifyBlock(level, mutable, shooter)) {
+                                notifyBlocked(shooter, currentTick);
+                                continue;
+                            }
+                        }
+                    }
+
                     level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
                 }
             }
         }
+    }
+
+
+    private static void notifyBlocked(ServerPlayer shooter, int currentTick) {
+        if (shooter == null) {
+            return;
+        }
+        if (!FTBChunksCompat.isLoaded() || !OrbitalConfig.RESPECT_CLAIMS.get()) {
+            return;
+        }
+        UUID id = shooter.getUUID();
+        Integer lastTick = LAST_BLOCKED_MESSAGE_TICK.get(id);
+        if (lastTick != null && lastTick == currentTick) {
+            return;
+        }
+        shooter.displayClientMessage(Component.literal("❌ Railgun blocked by claim protection."), true);
+        LAST_BLOCKED_MESSAGE_TICK.put(id, currentTick);
     }
 
 
@@ -193,11 +262,17 @@ public final class OrbitalRailgunStrikeManager {
         private final StrikeKey key;
         private final List<Entity> entities;
         private final int startTick;
+        private final UUID shooter;
 
-        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick) {
+        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooter) {
             this.key = key;
             this.entities = entities;
             this.startTick = startTick;
+            this.shooter = shooter;
+        }
+
+        private ServerPlayer getShooter(MinecraftServer server) {
+            return server.getPlayerList().getPlayer(shooter);
         }
     }
 }
