@@ -25,3 +25,9 @@ mandatory=true
 versionRange="[4.0.0,)"
 ordering="NONE"
 side="BOTH"
+[[dependencies.${mod_id}]]
+modId="ftbchunks"
+mandatory=false
+versionRange="[2001,)"
+ordering="NONE"
+side="BOTH"

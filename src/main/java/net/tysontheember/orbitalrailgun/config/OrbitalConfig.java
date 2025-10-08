@@ -12,6 +12,11 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLACKLISTED_BLOCKS;
     public static final ForgeConfigSpec.BooleanValue SUCK_ENTITIES;
     public static final ForgeConfigSpec.BooleanValue DEBUG;
+    public static final ForgeConfigSpec.BooleanValue RESPECT_CLAIMS;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_ENTITY_DAMAGE_IN_CLAIMS;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_BLOCK_BREAK_IN_CLAIMS;
+    public static final ForgeConfigSpec.BooleanValue ALLOW_EXPLOSIONS_IN_CLAIMS;
+    public static final ForgeConfigSpec.BooleanValue OPS_BYPASS_CLAIMS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -42,6 +47,24 @@ public final class OrbitalConfig {
                 .define("debugMode", false);
 
 
+        builder.pop();
+
+        builder.push("protection");
+        RESPECT_CLAIMS = builder
+                .comment("If true, the railgun respects FTB Chunks claims and cancels actions in protected areas.")
+                .define("respectClaims", true);
+        ALLOW_ENTITY_DAMAGE_IN_CLAIMS = builder
+                .comment("If true, the railgun can damage entities inside claims only if the shooter has permission.")
+                .define("allowEntityDamageInClaims", false);
+        ALLOW_BLOCK_BREAK_IN_CLAIMS = builder
+                .comment("If true, the railgun can break blocks inside claims only if the shooter has permission.")
+                .define("allowBlockBreakInClaims", false);
+        ALLOW_EXPLOSIONS_IN_CLAIMS = builder
+                .comment("If true, the railgun explosions are allowed inside claims only if the shooter has permission.")
+                .define("allowExplosionsInClaims", false);
+        OPS_BYPASS_CLAIMS = builder
+                .comment("If true, operators (permission level >= 2) bypass claim checks.")
+                .define("opsBypassClaims", true);
         builder.pop();
 
         COMMON_SPEC = builder.build();
