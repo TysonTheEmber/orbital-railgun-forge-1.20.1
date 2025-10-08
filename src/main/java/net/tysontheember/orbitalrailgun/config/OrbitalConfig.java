@@ -6,6 +6,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 
 public final class OrbitalConfig {
     public static final ForgeConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec.DoubleValue RANGE;
     public static final ForgeConfigSpec.DoubleValue MAX_BREAK_HARDNESS;
     public static final ForgeConfigSpec.IntValue COOLDOWN;
     public static final ForgeConfigSpec.IntValue STRIKE_DAMAGE;
@@ -13,8 +14,8 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.BooleanValue SUCK_ENTITIES;
     public static final ForgeConfigSpec.DoubleValue DESTRUCTION_DIAMETER;
     public static final ForgeConfigSpec.IntValue BLOCKS_PER_TICK;
+    public static final ForgeConfigSpec.IntValue MIN_DESTROY_Y;
     public static final ForgeConfigSpec.BooleanValue DROP_BLOCKS;
-    public static final ForgeConfigSpec.BooleanValue DESTROY_FLUIDS;
     public static final ForgeConfigSpec.BooleanValue DEBUG;
     public static final ForgeConfigSpec.BooleanValue RESPECT_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_ENTITY_DAMAGE_IN_CLAIMS;
@@ -26,6 +27,9 @@ public final class OrbitalConfig {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
         builder.push("orbitalStrike");
+        RANGE = builder
+                .comment("Maximum selection range of the orbital railgun")
+                .defineInRange("range", 256.0D, 0.0D, 1000000);
         MAX_BREAK_HARDNESS = builder
             .comment("Maximum block hardness the orbital strike can destroy(set to -1 to destroy all blocks)")
             .defineInRange("maxBreakHardness", 50.0D, -1.0D, Double.MAX_VALUE);
@@ -52,12 +56,15 @@ public final class OrbitalConfig {
         BLOCKS_PER_TICK = builder
                 .comment("Max blocks removed per server tick for an active strike (performance safety).")
                 .defineInRange("blocksPerTick", 2000, 1, 200000);
+        MIN_DESTROY_Y = builder
+                .comment(
+                        "Strike removes blocks from world max build height down to this Y (clamped to world min).",
+                        "Default -64 (Overworld bedrock shelf on modern versions)."
+                )
+                .defineInRange("minDestroyY", -64, -2048, 4096);
         DROP_BLOCKS = builder
                 .comment("If true, destroyed blocks drop items (heavier). If false, they are vaporized.")
                 .define("dropBlocks", false);
-        DESTROY_FLUIDS = builder
-                .comment("If true, remove water/lava too (costly). If false, leave fluids.")
-                .define("destroyFluids", true);
         DEBUG = builder
                 .comment("Toggle Debug mode")
                 .define("debugMode", false);

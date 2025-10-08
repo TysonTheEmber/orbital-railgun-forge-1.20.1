@@ -123,48 +123,71 @@ public final class OrbitalRailgunStrikeManager {
     }
 
     private static void damageEntities(ServerLevel level, ActiveStrike strike, int age) {
+        // Center & radius
         Vec3 center = Vec3.atCenterOf(strike.key.pos());
+        double radius = Math.sqrt(strike.radiusSquared);
+
+        // Use the registry holder you already set up
         Holder<DamageType> damageType = level.registryAccess()
-            .registryOrThrow(Registries.DAMAGE_TYPE)
-            .getHolderOrThrow(STRIKE_DAMAGE);
+                .registryOrThrow(Registries.DAMAGE_TYPE)
+                .getHolderOrThrow(STRIKE_DAMAGE);
+
+        // Create the damage source (1.20.1 Mojang mappings support this ctor)
         DamageSource source = new DamageSource(damageType);
+
+        // Bail if disabled
         double configuredDamage = OrbitalConfig.STRIKE_DAMAGE.get();
-        if (configuredDamage <= 0.0D) {
-            return;
-        }
+        if (configuredDamage <= 0.0D) return;
         float damage = (float) configuredDamage;
+
+        // Respect claims (same flags you already use)
         boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get() && FTBChunksCompat.isLoaded();
         boolean allowEntityDamage = OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get();
         ServerPlayer shooter = respectClaims ? resolveShooter(level, strike) : null;
+
         boolean blockedAny = false;
         BlockPos blockedPos = null;
-        for (Entity entity : strike.entities) {
-            if (entity == null || !entity.isAlive() || entity.level() != level) {
-                continue;
-            }
-            if (entity.position().distanceToSqr(center) <= strike.radiusSquared) {
-                if (respectClaims) {
-                    BlockPos entityPos = entity.blockPosition();
-                    if (FTBChunksCompat.isPositionClaimed(level, entityPos)) {
-                        if (!allowEntityDamage) {
-                            blockedAny = true;
-                            blockedPos = entityPos.immutable();
-                            continue;
-                        }
-                        if (shooter == null || !FTBChunksCompat.canDamageEntity(level, entity, shooter)) {
-                            blockedAny = true;
-                            blockedPos = entityPos.immutable();
-                            continue;
-                        }
+
+        // **LIVE QUERY** of entities currently within radius (cylindrical-ish by AABB inflate)
+        AABB box = AABB.ofSize(center, radius * 2.0, radius * 2.0, radius * 2.0);
+        List<Entity> targets = level.getEntities(null, box);
+
+        for (Entity entity : targets) {
+            if (entity == null || !entity.isAlive() || entity.level() != level) continue;
+            if (entity instanceof Player p && p.isSpectator()) continue;
+
+            // precise distance check (sphere)
+            if (entity.position().distanceToSqr(center) > strike.radiusSquared) continue;
+
+            if (respectClaims) {
+                BlockPos entityPos = entity.blockPosition();
+
+                if (FTBChunksCompat.isPositionClaimed(level, entityPos)) {
+                    if (!allowEntityDamage) {
+                        blockedAny = true;
+                        blockedPos = entityPos.immutable();
+                        continue;
+                    }
+                    if (shooter == null || !FTBChunksCompat.canDamageEntity(level, entity, shooter)) {
+                        blockedAny = true;
+                        blockedPos = entityPos.immutable();
+                        continue;
                     }
                 }
-                entity.hurt(source, damage);
             }
+
+            // Reset invulnerability frames a bit so the big blast actually lands
+            entity.invulnerableTime = Math.min(entity.invulnerableTime, 2);
+
+            // Apply damage
+            entity.hurt(source, damage);
         }
+
         if (blockedAny) {
             notifyClaimBlocked(strike, shooter, ClaimBlockType.DAMAGE, blockedPos != null ? blockedPos : strike.key.pos());
         }
     }
+
 
     private static void explode(ServerLevel level, ActiveStrike strike) {
         BlockPos center = strike.key.pos();
@@ -184,12 +207,17 @@ public final class OrbitalRailgunStrikeManager {
         boolean blockedAny = false;
         BlockPos blockedPos = null;
         int horizontalRange = strike.horizontalRange;
-        int minY = level.getMinBuildHeight();
-        int maxY = level.getMaxBuildHeight() - 1;
-        int topY = Math.min(maxY, center.getY());
+
+        // --- CHANGED: scan full vertical range from top build limit down to configured floor ---
+        final int worldMinY = level.getMinBuildHeight();
+        final int worldMaxY = level.getMaxBuildHeight() - 1;
+        final int cfgFloor = OrbitalConfig.MIN_DESTROY_Y.get();
+        final int yEnd   = Math.max(worldMinY, cfgFloor); // clamp to world min
+        final int yStart = worldMaxY;                     // always start at top build limit
+
         LongOpenHashSet allowedPositions = new LongOpenHashSet();
 
-        for (int y = topY; y >= minY; --y) {
+        for (int y = yStart; y >= yEnd; --y) {
             for (int x = -horizontalRange; x <= horizontalRange; x++) {
                 for (int z = -horizontalRange; z <= horizontalRange; z++) {
                     double horizontalDistanceSq = (double) x * x + (double) z * z;
@@ -255,7 +283,6 @@ public final class OrbitalRailgunStrikeManager {
             StrikeExecutor.filterAllowed(allowedPositions);
         }
     }
-
 
     private static ServerPlayer resolveShooter(ServerLevel level, ActiveStrike strike) {
         if (strike.shooter == null) {
