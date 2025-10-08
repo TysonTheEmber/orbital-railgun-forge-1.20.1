@@ -42,3 +42,8 @@ Common configuration values live in `config/orbital-railgun-common.toml`. In add
 * `allowExplosionsInClaims` — allow the explosion effect in claims when the shooter has permission.
 * `opsBypassClaims` — let server operators bypass claim checks.
 
+The orbital strike diameter can also be tuned:
+
+* `destructionDiameter` (common) — diameter in blocks used for the strike's destructive physics. The server enforces this value.
+* `shaderDiameter` (client) — visual-only diameter used by the post-processing shaders. Leave `syncShaderDiameterWithServer` enabled to let strike packets temporarily override the visuals with the server's value during impacts.
+

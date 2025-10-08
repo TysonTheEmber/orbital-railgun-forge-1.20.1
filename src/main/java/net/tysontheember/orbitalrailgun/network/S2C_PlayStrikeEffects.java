@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.network;
 
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -14,16 +15,18 @@ import net.minecraftforge.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension) {
+public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension, float serverStrikeRadius) {
     public static void encode(S2C_PlayStrikeEffects packet, FriendlyByteBuf buf) {
         buf.writeBlockPos(packet.pos);
         buf.writeResourceLocation(packet.dimension.location());
+        buf.writeFloat(packet.serverStrikeRadius);
     }
 
     public static S2C_PlayStrikeEffects decode(FriendlyByteBuf buf) {
         BlockPos pos = buf.readBlockPos();
         ResourceLocation dim = buf.readResourceLocation();
-        return new S2C_PlayStrikeEffects(pos, ResourceKey.create(Registries.DIMENSION, dim));
+        float radius = buf.readFloat();
+        return new S2C_PlayStrikeEffects(pos, ResourceKey.create(Registries.DIMENSION, dim), radius);
     }
 
     public static void handle(S2C_PlayStrikeEffects packet, Supplier<NetworkEvent.Context> contextSupplier) {
@@ -37,5 +40,6 @@ public record S2C_PlayStrikeEffects(BlockPos pos, ResourceKey<Level> dimension) 
         Minecraft mc = Minecraft.getInstance();
         RailgunState state = RailgunState.getInstance();
         state.onStrikeStarted(packet.pos(), packet.dimension());
+        state.setTransientVisualStrikeRadius(packet.serverStrikeRadius(), 40);
     }
 }

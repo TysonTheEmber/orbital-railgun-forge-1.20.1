@@ -14,6 +14,8 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Optional;
+
 public final class RailgunState {
     public enum HitKind {
         NONE,
@@ -45,6 +47,9 @@ public final class RailgunState {
     private int strikeTicks;
     private Vec3 strikePos = Vec3.ZERO;
     private ResourceKey<Level> strikeDimension;
+
+    private float transientVisualStrikeRadius = Float.NaN;
+    private int transientVisualStrikeRadiusTicks;
 
     private RailgunState() {}
 
@@ -89,6 +94,13 @@ public final class RailgunState {
                 clearStrike();
             } else if (minecraft.level == null || minecraft.level.dimension() != strikeDimension) {
                 clearStrike();
+            }
+        }
+
+        if (transientVisualStrikeRadiusTicks > 0) {
+            transientVisualStrikeRadiusTicks--;
+            if (transientVisualStrikeRadiusTicks <= 0) {
+                transientVisualStrikeRadius = Float.NaN;
             }
         }
     }
@@ -239,5 +251,19 @@ public final class RailgunState {
         strikeTicks = 0;
         strikePos = Vec3.ZERO;
         strikeDimension = null;
+        transientVisualStrikeRadius = Float.NaN;
+        transientVisualStrikeRadiusTicks = 0;
+    }
+
+    public void setTransientVisualStrikeRadius(float radius, int ttlTicks) {
+        transientVisualStrikeRadius = Math.max(0.0F, radius);
+        transientVisualStrikeRadiusTicks = Math.max(0, ttlTicks);
+    }
+
+    public Optional<Float> getTransientVisualStrikeRadius() {
+        if (transientVisualStrikeRadiusTicks > 0 && !Float.isNaN(transientVisualStrikeRadius)) {
+            return Optional.of(transientVisualStrikeRadius);
+        }
+        return Optional.empty();
     }
 }

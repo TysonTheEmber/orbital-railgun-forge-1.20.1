@@ -20,6 +20,7 @@ const vec3 blue = vec3(0.62, 0.93, 0.93);
 vec2 scale = vec2(0.);
 
 uniform float iTime;
+uniform float StrikeRadius;
 
 in vec2 texCoord;
 in float viewHeight;
@@ -116,7 +117,8 @@ void main() {
     mat2 rotationMatrix = mat2(cos(rotation), -sin(rotation), sin(rotation), cos(rotation));
 
     vec2 AOE = end_point.xz * rotationMatrix;
-    float withinAOE = length(AOE) - 24.;
+    float radius = max(StrikeRadius, 0.0001);
+    float withinAOE = length(AOE) - radius;
     float indicator = 0.05 / min(abs(withinAOE), min(max(min(sdBox(AOE, vec2(5.5, 0.)), sdBox(AOE, vec2(0., 5.5))), -length(AOE) + 1.5), abs(length(AOE) - 2.5)));
 
     vec3 original = texture(DiffuseSampler, texCoord).rgb + (red * 0.03 / sDist(end_point) + blue * indicator + blue / 5. * step(withinAOE, 0.)) * coveredByScreen;
