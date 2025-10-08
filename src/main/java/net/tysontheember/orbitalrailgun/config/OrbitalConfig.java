@@ -12,6 +12,9 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLACKLISTED_BLOCKS;
     public static final ForgeConfigSpec.BooleanValue SUCK_ENTITIES;
     public static final ForgeConfigSpec.DoubleValue DESTRUCTION_DIAMETER;
+    public static final ForgeConfigSpec.IntValue BLOCKS_PER_TICK;
+    public static final ForgeConfigSpec.BooleanValue DROP_BLOCKS;
+    public static final ForgeConfigSpec.BooleanValue DESTROY_FLUIDS;
     public static final ForgeConfigSpec.BooleanValue DEBUG;
     public static final ForgeConfigSpec.BooleanValue RESPECT_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_ENTITY_DAMAGE_IN_CLAIMS;
@@ -46,6 +49,15 @@ public final class OrbitalConfig {
         DESTRUCTION_DIAMETER = builder
                 .comment("Diameter in blocks used for destruction/physics (server-authoritative).")
                 .defineInRange("destructionDiameter", 12.0D, 1.0D, 256.0D);
+        BLOCKS_PER_TICK = builder
+                .comment("Max blocks removed per server tick for an active strike (performance safety).")
+                .defineInRange("blocksPerTick", 2000, 1, 200000);
+        DROP_BLOCKS = builder
+                .comment("If true, destroyed blocks drop items (heavier). If false, they are vaporized.")
+                .define("dropBlocks", false);
+        DESTROY_FLUIDS = builder
+                .comment("If true, remove water/lava too (costly). If false, leave fluids.")
+                .define("destroyFluids", true);
         DEBUG = builder
                 .comment("Toggle Debug mode")
                 .define("debugMode", false);
