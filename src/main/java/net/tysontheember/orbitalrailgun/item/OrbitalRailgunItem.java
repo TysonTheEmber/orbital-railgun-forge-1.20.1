@@ -1,5 +1,6 @@
 package net.tysontheember.orbitalrailgun.item;
 
+import net.minecraft.ChatFormatting;
 import net.tysontheember.orbitalrailgun.client.item.OrbitalRailgunRenderer;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
@@ -106,7 +107,9 @@ public class OrbitalRailgunItem extends Item implements GeoItem {
             tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip.shift1")
                     .withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
             tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip.shift2")
-                    .withStyle(net.minecraft.ChatFormatting.DARK_AQUA));
+                    .withStyle(ChatFormatting.DARK_GREEN));
+            tooltip.add(net.minecraft.network.chat.Component.translatable(getDescriptionId(stack) + ".tooltip.shift3")
+                    .withStyle(ChatFormatting.DARK_RED));
         } else {
             tooltip.add(net.minecraft.network.chat.Component.translatable("tooltip.orbital_railgun.hold_shift")
                     .withStyle(net.minecraft.ChatFormatting.YELLOW, net.minecraft.ChatFormatting.ITALIC));

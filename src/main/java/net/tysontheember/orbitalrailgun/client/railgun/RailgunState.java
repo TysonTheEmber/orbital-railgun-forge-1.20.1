@@ -23,6 +23,9 @@ public final class RailgunState {
 
     private static final RailgunState INSTANCE = new RailgunState();
 
+    // ==== NEW: minimum warm-up delay before firing (in ticks) ====
+    private static final int MIN_WARMUP_TICKS = 20;
+
     private boolean charging;
     private int chargeTicks;
     private boolean requestedFire;
@@ -144,6 +147,10 @@ public final class RailgunState {
 
     public boolean canRequestFire(LocalPlayer player) {
         if (!charging || requestedFire || strikeActive || activeRailgun == null) {
+            return false;
+        }
+        // ==== NEW: prevent firing until warm-up threshold reached ====
+        if (chargeTicks < MIN_WARMUP_TICKS) {
             return false;
         }
         if (player == null || player.getCooldowns().isOnCooldown(activeRailgun)) {

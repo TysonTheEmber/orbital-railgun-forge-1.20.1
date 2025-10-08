@@ -40,6 +40,7 @@ public class ForgeOrbitalRailgunMod {
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalConfig.COMMON_SPEC);
 
+        ModCreativeTabs.TABS.register(modBus);
         OrbitalRailgunStrikeManager.register();
     }
 
