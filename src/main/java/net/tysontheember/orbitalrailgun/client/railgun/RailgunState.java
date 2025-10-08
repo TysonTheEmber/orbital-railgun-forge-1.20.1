@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.client.railgun;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -111,7 +112,7 @@ public final class RailgunState {
         if (level != null) {
             Vec3 start = player.getEyePosition(1.0F);
             Vec3 direction = player.getViewVector(1.0F);
-            double distance = Math.max(1.0D, 100000D);
+            double distance = Math.max(1.0D, OrbitalConfig.RANGE.get());
             Vec3 end = start.add(direction.scale(distance));
             ClipContext context = new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player);
             result = level.clip(context);
