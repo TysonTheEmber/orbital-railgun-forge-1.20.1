@@ -34,6 +34,7 @@ import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
+import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
@@ -403,6 +404,9 @@ public final class ClientEvents {
         float width = renderTarget.width > 0 ? renderTarget.width : renderTarget.viewWidth;
         float height = renderTarget.height > 0 ? renderTarget.height : renderTarget.viewHeight;
 
+        float strikeRadius = state.getTransientVisualStrikeRadius()
+                .orElse((float) (OrbitalConfig.SHADER_DIAMETER.get() * 0.5D));
+
         for (PostPass pass : passes) {
             EffectInstance effect = pass.getEffect();
             if (effect == null) continue;
@@ -431,6 +435,7 @@ public final class ClientEvents {
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
             setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
             setInt(effect, "HitKind", hitKindOrdinal);
+            setFloat(effect, "StrikeRadius", strikeRadius);
         }
     }
 

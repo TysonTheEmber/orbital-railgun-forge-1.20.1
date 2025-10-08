@@ -12,6 +12,7 @@ uniform vec3 BlockPosition;
 
 uniform float iTime;
 uniform float StrikeActive;
+uniform float StrikeRadius;
 
 const vec3 blue = vec3(0.62, 0.93, 0.93);
 
@@ -64,7 +65,8 @@ float sDist(vec3 p) {
         return smooth_min(main_sphere, smooth_min(outer_spheres, outer_beams, 1.), 5.);
     }
 
-    float explosion_cylindar = length(p.xz) + 8. / (localTime) - 24.;
+    float radius = max(StrikeRadius, 0.0001);
+    float explosion_cylindar = length(p.xz) + 8. / (localTime) - radius;
     return explosion_cylindar;
 }
 
@@ -134,7 +136,12 @@ void main() {
 
     if (iTime < startTime) {
         end_point.xz = rotate(end_point.xz, pow(localTime / 2., 4.));
-        float dist = max(max(length(end_point.xz) - 24., -(length(end_point.xz) - 12. * (localTime - 1.7))), -min(sdBox(end_point.xz, vec2(0., 24.)), sdBox(end_point.xz, vec2(24., 0.))));
+        float radius = max(StrikeRadius, 0.0001);
+        float halfRadius = radius * 0.5;
+        float dist = max(
+            max(length(end_point.xz) - radius, -(length(end_point.xz) - halfRadius * (localTime - 1.7))),
+            -min(sdBox(end_point.xz, vec2(0., radius)), sdBox(end_point.xz, vec2(radius, 0.)))
+        );
         vec3 col = original + 0.2 / pow(dist, 2.) * blue * step(length(end_point), localTime * 20.);
         col = mix(col, vec3(0.), pow(max(localTime - 3., 0.), 2.)), 1.;
 

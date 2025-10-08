@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
@@ -28,7 +29,6 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.tysontheember.orbitalrailgun.compat.FTBChunksCompat;
-import org.joml.Vector2i;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -38,21 +38,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class OrbitalRailgunStrikeManager {
-    private static final int RADIUS = 24;
-    private static final int RADIUS_SQUARED = RADIUS * RADIUS;
-    private static final boolean[][] MASK = new boolean[RADIUS * 2 + 1][RADIUS * 2 + 1];
     private static final ResourceKey<DamageType> STRIKE_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, ForgeOrbitalRailgunMod.id("strike"));
     private static final Component CLAIM_BLOCKED_MESSAGE = Component.literal("❌ Railgun blocked by claim protection.");
 
     private static final Map<StrikeKey, ActiveStrike> ACTIVE_STRIKES = new ConcurrentHashMap<>();
-
-    static {
-        for (int x = -RADIUS; x <= RADIUS; x++) {
-            for (int z = -RADIUS; z <= RADIUS; z++) {
-                MASK[x + RADIUS][z + RADIUS] = Vector2i.lengthSquared(x, z) <= RADIUS_SQUARED;
-            }
-        }
-    }
 
     private OrbitalRailgunStrikeManager() {}
 
@@ -65,16 +54,25 @@ public final class OrbitalRailgunStrikeManager {
         if (serverLevel.isClientSide()) {
             return;
         }
-        List<Entity> tracked = new ArrayList<>(serverLevel.getEntities(null, AABB.ofSize(Vec3.atCenterOf(target), 1000.0D, 1000.0D, 1000.0D)));
+        double configuredDiameter = OrbitalConfig.DESTRUCTION_DIAMETER.get();
+        double clampedDiameter = Mth.clamp(configuredDiameter, 1.0D, 256.0D);
+        double radius = clampedDiameter * 0.5D;
+
+        double trackedExtent = Math.max(radius * 4.0D, 128.0D);
+        List<Entity> tracked = new ArrayList<>(serverLevel.getEntities(null, AABB.ofSize(Vec3.atCenterOf(target), trackedExtent, trackedExtent, trackedExtent)));
         StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
-        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount(), player.getUUID()));
+        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount(), player.getUUID(), radius));
 
         if (ModSounds.RAILGUN_SHOOT.isPresent()) {
             serverLevel.playSound(null,
                     player.getX(), player.getY(), player.getZ(),
                     ModSounds.RAILGUN_SHOOT.get(), SoundSource.PLAYERS, 1.6F, 1.0F);
         }
-        Network.CHANNEL.send(PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(), 512.0D, serverLevel.dimension())), new S2C_PlayStrikeEffects(target, serverLevel.dimension()));
+        float serverRadius = (float) radius;
+        Network.CHANNEL.send(
+                PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(), 512.0D, serverLevel.dimension())),
+                new S2C_PlayStrikeEffects(target, serverLevel.dimension(), serverRadius)
+        );
     }
 
     private static void onServerTick(TickEvent.ServerTickEvent event) {
@@ -143,7 +141,7 @@ public final class OrbitalRailgunStrikeManager {
             if (entity == null || !entity.isAlive() || entity.level() != level) {
                 continue;
             }
-            if (entity.position().distanceToSqr(center) <= RADIUS_SQUARED) {
+            if (entity.position().distanceToSqr(center) <= strike.radiusSquared) {
                 if (respectClaims) {
                     BlockPos entityPos = entity.blockPosition();
                     if (FTBChunksCompat.isPositionClaimed(level, entityPos)) {
@@ -184,10 +182,15 @@ public final class OrbitalRailgunStrikeManager {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         boolean blockedAny = false;
         BlockPos blockedPos = null;
-        for (int y = level.getMinBuildHeight(); y <= level.getMaxBuildHeight(); y++) {
-            for (int x = -RADIUS; x <= RADIUS; x++) {
-                for (int z = -RADIUS; z <= RADIUS; z++) {
-                    if (!MASK[x + RADIUS][z + RADIUS]) continue;
+        int horizontalRange = strike.horizontalRange;
+        int minY = Math.max(level.getMinBuildHeight(), center.getY() - horizontalRange);
+        int maxY = Math.min(level.getMaxBuildHeight(), center.getY() + horizontalRange);
+
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = -horizontalRange; x <= horizontalRange; x++) {
+                for (int z = -horizontalRange; z <= horizontalRange; z++) {
+                    double horizontalDistanceSq = (double) x * x + (double) z * z;
+                    if (horizontalDistanceSq > strike.radiusSquared) continue;
 
                     mutable.set(center.getX() + x, y, center.getZ() + z);
                     BlockState state = level.getBlockState(mutable);
@@ -274,15 +277,19 @@ public final class OrbitalRailgunStrikeManager {
         private final List<Entity> entities;
         private final int startTick;
         private final UUID shooter;
+        private final double radiusSquared;
+        private final int horizontalRange;
         private boolean blockNotified;
         private boolean explosionNotified;
         private boolean damageNotified;
 
-        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooter) {
+        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooter, double radius) {
             this.key = key;
             this.entities = entities;
             this.startTick = startTick;
             this.shooter = shooter;
+            this.radiusSquared = radius * radius;
+            this.horizontalRange = Math.max(0, Mth.ceil(radius));
         }
 
         private boolean markNotified(ClaimBlockType type) {

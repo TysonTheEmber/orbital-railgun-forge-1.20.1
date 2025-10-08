@@ -7,6 +7,7 @@ uniform vec3 BlockPosition;
 
 uniform float iTime;
 uniform float StrikeActive;
+uniform float StrikeRadius;
 
 in vec2 texCoord;
 in float viewHeight;
@@ -29,7 +30,8 @@ void main() {
     vec2 one_pixel = vec2(1. / viewWidth, 1. / viewHeight);
     vec2 rotated_pixel = rotate(one_pixel, -frameTimeCounter);
 
-    float scale = max((-pow((frameTimeCounter - 0.84) * 8., 2.) + 50.) * 25. / (distance(CameraPosition, BlockPosition) - 24. + 25.), 0.);
+    float radius = max(StrikeRadius, 0.0001);
+    float scale = max((-pow((frameTimeCounter - 0.84) * 8., 2.) + 50.) * 25. / (distance(CameraPosition, BlockPosition) - radius + 25.), 0.);
     float ca_red = texture(DiffuseSampler, texCoord + (rotated_pixel) * scale).r;
     rotated_pixel = rotate(rotated_pixel, 2.09439510239);
     float ca_green = texture(DiffuseSampler, texCoord + (rotated_pixel - one_pixel) * scale).g;

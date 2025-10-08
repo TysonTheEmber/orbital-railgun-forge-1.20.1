@@ -39,6 +39,7 @@ public class ForgeOrbitalRailgunMod {
         modBus.addListener(this::onCommonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, OrbitalConfig.COMMON_SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, OrbitalConfig.CLIENT_SPEC);
 
         ModCreativeTabs.TABS.register(modBus);
         OrbitalRailgunStrikeManager.register();

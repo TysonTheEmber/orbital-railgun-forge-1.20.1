@@ -11,12 +11,16 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.IntValue STRIKE_DAMAGE;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BLACKLISTED_BLOCKS;
     public static final ForgeConfigSpec.BooleanValue SUCK_ENTITIES;
+    public static final ForgeConfigSpec.DoubleValue DESTRUCTION_DIAMETER;
     public static final ForgeConfigSpec.BooleanValue DEBUG;
     public static final ForgeConfigSpec.BooleanValue RESPECT_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_ENTITY_DAMAGE_IN_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_BLOCK_BREAK_IN_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_EXPLOSIONS_IN_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue OPS_BYPASS_CLAIMS;
+    public static final ForgeConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec.DoubleValue SHADER_DIAMETER;
+    public static final ForgeConfigSpec.BooleanValue SYNC_SHADER_DIAMETER_WITH_SERVER;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -42,6 +46,9 @@ public final class OrbitalConfig {
         SUCK_ENTITIES = builder
                 .comment("Whether entities are pulled towards the strike before detonation.")
                 .define("suckEntities", true);
+        DESTRUCTION_DIAMETER = builder
+                .comment("Diameter in blocks used for destruction/physics (server-authoritative).")
+                .defineInRange("destructionDiameter", 12.0D, 1.0D, 256.0D);
         DEBUG = builder
                 .comment("Toggle Debug mode")
                 .define("debugMode", false);
@@ -68,6 +75,19 @@ public final class OrbitalConfig {
         builder.pop();
 
         COMMON_SPEC = builder.build();
+
+        ForgeConfigSpec.Builder clientBuilder = new ForgeConfigSpec.Builder();
+
+        clientBuilder.push("visuals");
+        SHADER_DIAMETER = clientBuilder
+                .comment("Diameter in blocks for client-side visuals/shaders. Purely visual.")
+                .defineInRange("shaderDiameter", 12.0D, 1.0D, 512.0D);
+        SYNC_SHADER_DIAMETER_WITH_SERVER = clientBuilder
+                .comment("If true, use the server's computed strike radius for visuals when a strike packet is received.")
+                .define("syncShaderDiameterWithServer", true);
+        clientBuilder.pop();
+
+        CLIENT_SPEC = clientBuilder.build();
     }
 
     private OrbitalConfig() {}
