@@ -1,6 +1,7 @@
 package net.tysontheember.orbitalrailgun.util;
 
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.compat.FTBChunksCompat;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
@@ -13,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
@@ -29,9 +31,11 @@ import net.minecraftforge.registries.ForgeRegistries;
 import org.joml.Vector2i;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class OrbitalRailgunStrikeManager {
@@ -41,6 +45,7 @@ public final class OrbitalRailgunStrikeManager {
     private static final ResourceKey<DamageType> STRIKE_DAMAGE = ResourceKey.create(Registries.DAMAGE_TYPE, ForgeOrbitalRailgunMod.id("strike"));
 
     private static final Map<StrikeKey, ActiveStrike> ACTIVE_STRIKES = new ConcurrentHashMap<>();
+    private static final Component CLAIM_BLOCKED_MESSAGE = Component.literal("❌ Railgun blocked by claim protection.");
 
     static {
         for (int x = -RADIUS; x <= RADIUS; x++) {
@@ -63,7 +68,7 @@ public final class OrbitalRailgunStrikeManager {
         }
         List<Entity> tracked = new ArrayList<>(serverLevel.getEntities(null, AABB.ofSize(Vec3.atCenterOf(target), 1000.0D, 1000.0D, 1000.0D)));
         StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
-        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount()));
+        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount(), player.getUUID()));
 
         if (ModSounds.RAILGUN_SHOOT.isPresent()) {
             serverLevel.playSound(null,
@@ -91,7 +96,7 @@ public final class OrbitalRailgunStrikeManager {
             if (age >= 700) {
                 iterator.remove();
                 damageEntities(level, strike, age);
-                explode(level, strike.key.pos());
+                explode(level, strike);
             } else if (age >= 400 && OrbitalConfig.SUCK_ENTITIES.get()) {
                 pushEntities(level, strike, age);
             }
@@ -129,35 +134,91 @@ public final class OrbitalRailgunStrikeManager {
         if (configuredDamage <= 0.0D) {
             return;
         }
+
         float damage = (float) configuredDamage;
+        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get();
+        boolean allowDamageInClaims = OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get();
+        ServerLevel serverLevel = level instanceof ServerLevel ? (ServerLevel) level : null;
+        ServerPlayer shooter = null;
+        if (respectClaims && serverLevel != null) {
+            shooter = strike.resolveShooter(serverLevel);
+        }
+
         for (Entity entity : strike.entities) {
             if (entity == null || !entity.isAlive() || entity.level() != level) {
                 continue;
             }
-            if (entity.position().distanceToSqr(center) <= RADIUS_SQUARED) {
-                entity.hurt(source, damage);
+            if (entity.position().distanceToSqr(center) > RADIUS_SQUARED) {
+                continue;
             }
+
+            if (respectClaims && serverLevel != null) {
+                boolean claimed = FTBChunksCompat.isClaimed(serverLevel, entity.blockPosition());
+                if (claimed) {
+                    boolean allowed = allowDamageInClaims && FTBChunksCompat.canDamageEntity(serverLevel, entity, shooter);
+                    if (!allowed) {
+                        strike.notifyBlocked(shooter, BlockedAction.ENTITIES, "entity damage denied by claim");
+                        continue;
+                    }
+                }
+            }
+
+            entity.hurt(source, damage);
         }
     }
 
-    private static void explode(Level level, BlockPos center) {
+    private static void explode(Level level, ActiveStrike strike) {
+        BlockPos center = strike.key.pos();
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get();
+        boolean allowExplosionsInClaims = OrbitalConfig.ALLOW_EXPLOSIONS_IN_CLAIMS.get();
+        boolean allowBlockBreakInClaims = OrbitalConfig.ALLOW_BLOCK_BREAK_IN_CLAIMS.get();
+        ServerLevel serverLevel = level instanceof ServerLevel ? (ServerLevel) level : null;
+        ServerPlayer shooter = null;
+
+        if (respectClaims && serverLevel != null) {
+            shooter = strike.resolveShooter(serverLevel);
+            if (FTBChunksCompat.isClaimed(serverLevel, center)) {
+                if (!allowExplosionsInClaims) {
+                    strike.notifyBlocked(shooter, BlockedAction.EXPLOSION, "explosion denied by claim");
+                    return;
+                }
+                if (!FTBChunksCompat.canExplode(serverLevel, center, shooter)) {
+                    strike.notifyBlocked(shooter, BlockedAction.EXPLOSION, "explosion permission denied");
+                    return;
+                }
+            }
+        }
+
+        double maxHardness = OrbitalConfig.MAX_BREAK_HARDNESS.get();
+        boolean infinite = maxHardness < 0.0D;
+
         for (int y = level.getMinBuildHeight(); y <= level.getMaxBuildHeight(); y++) {
             for (int x = -RADIUS; x <= RADIUS; x++) {
                 for (int z = -RADIUS; z <= RADIUS; z++) {
-                    if (!MASK[x + RADIUS][z + RADIUS]) continue;
+                    if (!MASK[x + RADIUS][z + RADIUS]) {
+                        continue;
+                    }
 
                     mutable.set(center.getX() + x, y, center.getZ() + z);
                     BlockState state = level.getBlockState(mutable);
-                    if (state.isAir()) continue;
+                    if (state.isAir()) {
+                        continue;
+                    }
 
-                    double maxHardness = OrbitalConfig.MAX_BREAK_HARDNESS.get();
-                    boolean infinite = maxHardness < 0.0D;
+                    if (respectClaims && serverLevel != null && FTBChunksCompat.isClaimed(serverLevel, mutable)) {
+                        if (!allowBlockBreakInClaims) {
+                            strike.notifyBlocked(shooter, BlockedAction.BLOCKS, "block break denied by claim");
+                            continue;
+                        }
+                        if (!FTBChunksCompat.canModifyBlock(serverLevel, mutable, shooter)) {
+                            strike.notifyBlocked(shooter, BlockedAction.BLOCKS, "block break permission denied");
+                            continue;
+                        }
+                    }
 
-                    // Always resolve ID once
                     ResourceLocation id = ForgeRegistries.BLOCKS.getKey(state.getBlock());
 
-                    // 1) Blacklist check ALWAYS applies
                     if (id != null && OrbitalConfig.isBlockBlacklistedNormalized(id.toString())) {
                         if (OrbitalConfig.DEBUG.get()) {
                             ForgeOrbitalRailgunMod.LOGGER.info("[OrbitalStrike] Skipped blacklisted block: {}", id);
@@ -165,7 +226,6 @@ public final class OrbitalRailgunStrikeManager {
                         continue;
                     }
 
-                    // 2) Hardness check only applies when not infinite
                     if (!infinite) {
                         double hardness = state.getDestroySpeed(level, mutable);
                         if (hardness > maxHardness) {
@@ -179,7 +239,6 @@ public final class OrbitalRailgunStrikeManager {
                         }
                     }
 
-                    // Break the block
                     level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
                 }
             }
@@ -193,11 +252,41 @@ public final class OrbitalRailgunStrikeManager {
         private final StrikeKey key;
         private final List<Entity> entities;
         private final int startTick;
+        private final UUID shooterId;
+        private final EnumSet<BlockedAction> notifiedActions = EnumSet.noneOf(BlockedAction.class);
 
-        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick) {
+        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooterId) {
             this.key = key;
             this.entities = entities;
             this.startTick = startTick;
+            this.shooterId = shooterId;
         }
+
+        private ServerPlayer resolveShooter(ServerLevel level) {
+            if (shooterId == null) {
+                return null;
+            }
+            return level.getServer().getPlayerList().getPlayer(shooterId);
+        }
+
+        private void notifyBlocked(ServerPlayer shooter, BlockedAction action, String reason) {
+            boolean firstTime = notifiedActions.add(action);
+            if (firstTime && shooter != null) {
+                shooter.displayClientMessage(CLAIM_BLOCKED_MESSAGE, true);
+            }
+            if (OrbitalConfig.DEBUG.get()) {
+                if (firstTime) {
+                    ForgeOrbitalRailgunMod.LOGGER.info("[OrbitalStrike] Blocked {} due to {}", action, reason);
+                } else {
+                    ForgeOrbitalRailgunMod.LOGGER.debug("[OrbitalStrike] Additional block for {} due to {}", action, reason);
+                }
+            }
+        }
+    }
+
+    private enum BlockedAction {
+        BLOCKS,
+        EXPLOSION,
+        ENTITIES
     }
 }

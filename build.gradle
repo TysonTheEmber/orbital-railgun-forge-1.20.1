@@ -114,6 +114,15 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     maven {
+        url = 'https://modmaven.dev'
+    }
+    maven {
+        url = 'https://maven.ftb.dev/releases'
+    }
+    maven {
+        url = 'https://maven.architectury.dev/'
+    }
+    maven {
         name = 'GeckoLib'
         url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
     }
@@ -123,6 +132,12 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     implementation fg.deobf('software.bernie.geckolib:geckolib-forge-1.20.1:4.2.2')
+    compileOnly fg.deobf('dev.ftb.mods:ftb-chunks-forge:2001.3.6')
+    compileOnly fg.deobf('dev.ftb.mods:ftb-teams-forge:2001.3.1')
+    compileOnly fg.deobf('dev.ftb.mods:ftb-library-forge:2001.2.9')
+    runtimeOnly fg.deobf('dev.ftb.mods:ftb-chunks-forge:2001.3.6')
+    runtimeOnly fg.deobf('dev.ftb.mods:ftb-teams-forge:2001.3.1')
+    runtimeOnly fg.deobf('dev.ftb.mods:ftb-library-forge:2001.2.9')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

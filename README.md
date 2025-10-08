@@ -10,6 +10,7 @@ It targets Java 17 and uses Parchment mappings via the Librarian ForgeGradle plu
 * **Networking:** Vanilla networking calls were replaced with Forge's `SimpleChannel`. Clients request a strike via `C2S_RequestFire`, the server validates the request, triggers `OrbitalRailgunStrikeManager`, and notifies nearby players with `S2C_PlayStrikeEffects`.
 * **Strike manager:** Server-side strike logic mirrors the Fabric behaviour, including entity knockback, delayed detonation, damage, and block removal using the original radius mask.
 * **Assets:** Shader programs, post chain JSON, Geckolib models, language strings, recipes, and damage types were migrated verbatim to the Forge resource layout.
+* **Claims protection:** When FTB Chunks is installed the strike manager respects chunk claims, using optional config toggles to control explosions, block damage, and PvP interactions.
 
 ## Development
 
@@ -30,4 +31,16 @@ gradle runClient
 ```
 gradle build
 ```
+
+## FTB Chunks compatibility
+
+If [FTB Chunks](https://www.feed-the-beast.com/modpacks/ftb-mods) is present, the railgun checks chunk ownership before breaking blocks, damaging entities, or triggering explosions. The behaviour is controlled by the following config keys (all located in `common.toml` under `protection`):
+
+* `respectClaims` (default: `true`)
+* `allowEntityDamageInClaims` (default: `false`)
+* `allowBlockBreakInClaims` (default: `false`)
+* `allowExplosionsInClaims` (default: `false`)
+* `opsBypassClaims` (default: `true`)
+
+Disabling `respectClaims` restores the vanilla strike behaviour even if FTB Chunks is installed.
 
