@@ -1,10 +1,12 @@
 package net.tysontheember.orbitalrailgun.util;
 
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.network.S2C_PlayStrikeEffects;
+import net.tysontheember.orbitalrailgun.strike.StrikeExecutor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
@@ -20,7 +22,6 @@ import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -183,10 +184,12 @@ public final class OrbitalRailgunStrikeManager {
         boolean blockedAny = false;
         BlockPos blockedPos = null;
         int horizontalRange = strike.horizontalRange;
-        int minY = Math.max(level.getMinBuildHeight(), center.getY() - horizontalRange);
-        int maxY = Math.min(level.getMaxBuildHeight(), center.getY() + horizontalRange);
+        int minY = level.getMinBuildHeight();
+        int maxY = level.getMaxBuildHeight() - 1;
+        int topY = Math.min(maxY, center.getY());
+        LongOpenHashSet allowedPositions = new LongOpenHashSet();
 
-        for (int y = minY; y <= maxY; y++) {
+        for (int y = topY; y >= minY; --y) {
             for (int x = -horizontalRange; x <= horizontalRange; x++) {
                 for (int z = -horizontalRange; z <= horizontalRange; z++) {
                     double horizontalDistanceSq = (double) x * x + (double) z * z;
@@ -237,13 +240,19 @@ public final class OrbitalRailgunStrikeManager {
                         }
                     }
 
-                    // Break the block
-                    level.setBlock(mutable, Blocks.AIR.defaultBlockState(), 3);
+                    allowedPositions.add(mutable.asLong());
                 }
             }
         }
         if (blockedAny) {
             notifyClaimBlocked(strike, shooter, ClaimBlockType.BLOCKS, blockedPos != null ? blockedPos : center);
+        }
+
+        if (!allowedPositions.isEmpty()) {
+            double radius = Math.sqrt(strike.radiusSquared);
+            double diameter = radius * 2.0D;
+            StrikeExecutor.begin(level, center, diameter);
+            StrikeExecutor.filterAllowed(allowedPositions);
         }
     }
 
