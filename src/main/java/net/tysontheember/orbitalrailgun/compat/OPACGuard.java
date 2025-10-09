@@ -13,32 +13,52 @@ public final class OPACGuard {
     }
 
     public static boolean canBreakBlock(ServerLevel level, ServerPlayer shooter, BlockPos pos) {
-        if (!OrbitalConfig.ALLOW_BLOCK_BREAK_IN_CLAIMS.get()) {
-            return false;
-        }
+        boolean allowInClaims = OrbitalConfig.ALLOW_BLOCK_BREAK_IN_CLAIMS.get();
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(level.getServer());
-            var protection = api.getChunkProtection();
-            if (protection == null) {
+            if (api == null) {
                 return true;
             }
+
+            boolean claimed = isBlockClaimed(api, level, pos);
+            if (!allowInClaims && claimed) {
+                return false;
+            }
+
+            var protection = api.getChunkProtection();
+            if (protection == null) {
+                return !claimed;
+            }
+
             boolean protect = protection.onEntityPlaceBlock(shooter, level, pos);
-            return !protect;
+            if (protect) {
+                return false;
+            }
+
+            return allowInClaims || !claimed;
         } catch (Throwable t) {
             return true;
         }
     }
 
     public static boolean canDamageEntity(ServerLevel level, ServerPlayer shooter, Entity target) {
-        if (!OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get()) {
-            return false;
-        }
+        boolean allowInClaims = OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get();
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(level.getServer());
-            var protection = api.getChunkProtection();
-            if (protection == null) {
+            if (api == null) {
                 return true;
             }
+
+            boolean claimed = isBlockClaimed(api, level, target.blockPosition());
+            if (!allowInClaims && claimed) {
+                return false;
+            }
+
+            var protection = api.getChunkProtection();
+            if (protection == null) {
+                return !claimed;
+            }
+
             boolean protect = protection.onEntityInteraction(
                 shooter, shooter, target,
                 shooter.getMainHandItem(), InteractionHand.MAIN_HAND,
@@ -46,22 +66,34 @@ public final class OPACGuard {
                 false,
                 true
             );
-            return !protect;
+            if (protect) {
+                return false;
+            }
+
+            return allowInClaims || !claimed;
         } catch (Throwable t) {
             return true;
         }
     }
 
     public static boolean canAffectPosFromPos(ServerLevel fromLevel, ChunkPos fromChunk, ServerLevel toLevel, ChunkPos toChunk) {
-        if (!OrbitalConfig.ALLOW_EXPLOSIONS_IN_CLAIMS.get()) {
-            return false;
-        }
+        boolean allowInClaims = OrbitalConfig.ALLOW_EXPLOSIONS_IN_CLAIMS.get();
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(fromLevel.getServer());
-            var protection = api.getChunkProtection();
-            if (protection == null) {
+            if (api == null) {
                 return true;
             }
+
+            boolean claimed = isChunkClaimed(api, toLevel, toChunk);
+            if (!allowInClaims && claimed) {
+                return false;
+            }
+
+            var protection = api.getChunkProtection();
+            if (protection == null) {
+                return !claimed;
+            }
+
             boolean protect = protection.onPosAffectedByAnotherPos(
                 toLevel, toChunk,
                 fromLevel, fromChunk,
@@ -69,9 +101,29 @@ public final class OPACGuard {
                 true,
                 true
             );
-            return !protect;
+            if (protect) {
+                return false;
+            }
+
+            return allowInClaims || !claimed;
         } catch (Throwable t) {
             return true;
         }
+    }
+
+    private static boolean isBlockClaimed(xaero.pac.common.server.api.OpenPACServerAPI api, ServerLevel level, BlockPos pos) {
+        var claims = api.getServerClaimsManager();
+        if (claims == null) {
+            return false;
+        }
+        return claims.get(level.dimension().location(), pos) != null;
+    }
+
+    private static boolean isChunkClaimed(xaero.pac.common.server.api.OpenPACServerAPI api, ServerLevel level, ChunkPos chunk) {
+        var claims = api.getServerClaimsManager();
+        if (claims == null) {
+            return false;
+        }
+        return claims.get(level.dimension().location(), chunk) != null;
     }
 }
