@@ -18,9 +18,6 @@ public final class OPACGuard {
         }
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(level.getServer());
-            if (api == null) {
-                return true;
-            }
             var protection = api.getChunkProtection();
             if (protection == null) {
                 return true;
@@ -38,9 +35,6 @@ public final class OPACGuard {
         }
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(level.getServer());
-            if (api == null) {
-                return true;
-            }
             var protection = api.getChunkProtection();
             if (protection == null) {
                 return true;
@@ -64,9 +58,6 @@ public final class OPACGuard {
         }
         try {
             var api = xaero.pac.common.server.api.OpenPACServerAPI.get(fromLevel.getServer());
-            if (api == null) {
-                return true;
-            }
             var protection = api.getChunkProtection();
             if (protection == null) {
                 return true;
