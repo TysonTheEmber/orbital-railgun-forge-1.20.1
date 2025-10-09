@@ -53,10 +53,12 @@ public final class OrbitalRailgunStrikeManager {
      * @param message optional error message when the strike cannot be scheduled.
      */
     public record StrikeRequestResult(boolean success, @Nullable Component message) {
-        public static StrikeRequestResult success() {
+        /** Convenience factory for a successful request result (no message). */
+        public static StrikeRequestResult ok() {
             return new StrikeRequestResult(true, null);
         }
 
+        /** Convenience factory for a failed request result with an explanatory message. */
         public static StrikeRequestResult failure(Component message) {
             return new StrikeRequestResult(false, message);
         }
@@ -131,7 +133,7 @@ public final class OrbitalRailgunStrikeManager {
         }
 
         scheduleStrike(level, target, shooter, normalizedRadius, normalizedMultiplier);
-        return StrikeRequestResult.success();
+        return StrikeRequestResult.ok();
     }
 
     private static void scheduleStrike(ServerLevel level, BlockPos target, @Nullable ServerPlayer shooter,
@@ -267,7 +269,6 @@ public final class OrbitalRailgunStrikeManager {
             notifyClaimBlocked(strike, shooter, ClaimBlockType.DAMAGE, blockedPos != null ? blockedPos : strike.key.pos());
         }
     }
-
 
     private static void explode(ServerLevel level, ActiveStrike strike) {
         BlockPos center = strike.key.pos();

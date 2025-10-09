@@ -49,7 +49,7 @@ public final class OrbitalStrikeCommand {
                                         .then(Commands.argument("radius", IntegerArgumentType.integer(MIN_RADIUS, MAX_RADIUS))
                                                 .executes(ctx -> execute(ctx,
                                                         FloatArgumentType.getFloat(ctx, "power"),
-                                                        IntegerArgumentType.getInteger(ctx, "radius"))))))));
+                                                        IntegerArgumentType.getInteger(ctx, "radius")))))));
     }
 
     /**
@@ -79,7 +79,7 @@ public final class OrbitalStrikeCommand {
                 source.getTextName(), x, z, surfaceY, power, radius);
         LOGGER.info(logMessage);
 
-        if (!result.success()) {
+        if (!OrbitalRailgunStrikeManager.StrikeRequestResult.ok().success()) {
             Component error = result.message();
             if (error != null) {
                 source.sendFailure(error);
