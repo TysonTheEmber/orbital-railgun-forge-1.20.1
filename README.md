@@ -48,3 +48,12 @@ The orbital strike diameter can also be tuned:
 * `destructionDiameter` (common) — diameter in blocks used for the strike's destructive physics. The server enforces this value.
 * `shaderDiameter` (client) — visual-only diameter used by the post-processing shaders. Leave `syncShaderDiameterWithServer` enabled to let strike packets temporarily override the visuals with the server's value during impacts.
 
+## Manual testing
+
+To validate the operator strike command on a local dedicated server:
+
+1. Start the integrated server with `gradle runServer` and join the world as an operator.
+2. Run `/orbitalstrike 100 -200` and confirm the strike spools up at the surface Y of (100, ?, -200).
+3. Run `/orbitalstrike 0 0 2.5 6` to verify the optional power and radius parameters schedule a wider blast.
+4. Demote your player or join as a non-op account and confirm the command is rejected with a permission error.
+
