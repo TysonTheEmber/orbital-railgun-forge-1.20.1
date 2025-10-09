@@ -18,6 +18,7 @@ public final class OrbitalConfig {
     public static final ForgeConfigSpec.BooleanValue DROP_BLOCKS;
     public static final ForgeConfigSpec.BooleanValue DEBUG;
     public static final ForgeConfigSpec.BooleanValue RESPECT_CLAIMS;
+    public static final ForgeConfigSpec.BooleanValue RESPECT_OPAC_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_ENTITY_DAMAGE_IN_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_BLOCK_BREAK_IN_CLAIMS;
     public static final ForgeConfigSpec.BooleanValue ALLOW_EXPLOSIONS_IN_CLAIMS;
@@ -76,6 +77,9 @@ public final class OrbitalConfig {
         RESPECT_CLAIMS = builder
                 .comment("If true, the railgun respects FTB Chunks claims and cancels actions in protected areas.")
                 .define("respectClaims", true);
+        RESPECT_OPAC_CLAIMS = builder
+                .comment("Respect Open Parties & Claims protection (if the mod is installed).")
+                .define("respectOPACClaims", true);
         ALLOW_ENTITY_DAMAGE_IN_CLAIMS = builder
                 .comment("If true, the railgun can damage entities inside claims only if the shooter has permission.")
                 .define("allowEntityDamageInClaims", false);
