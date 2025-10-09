@@ -29,7 +29,8 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.tysontheember.orbitalrailgun.compat.FTBChunksCompat;
+import net.tysontheember.orbitalrailgun.compat.ClaimCompat;
+import net.tysontheember.orbitalrailgun.compat.ClaimGuards;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -141,8 +142,7 @@ public final class OrbitalRailgunStrikeManager {
         float damage = (float) configuredDamage;
 
         // Respect claims (same flags you already use)
-        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get() && FTBChunksCompat.isLoaded();
-        boolean allowEntityDamage = OrbitalConfig.ALLOW_ENTITY_DAMAGE_IN_CLAIMS.get();
+        boolean respectClaims = areClaimsEnforced();
         ServerPlayer shooter = respectClaims ? resolveShooter(level, strike) : null;
 
         boolean blockedAny = false;
@@ -159,21 +159,10 @@ public final class OrbitalRailgunStrikeManager {
             // precise distance check (sphere)
             if (entity.position().distanceToSqr(center) > strike.radiusSquared) continue;
 
-            if (respectClaims) {
-                BlockPos entityPos = entity.blockPosition();
-
-                if (FTBChunksCompat.isPositionClaimed(level, entityPos)) {
-                    if (!allowEntityDamage) {
-                        blockedAny = true;
-                        blockedPos = entityPos.immutable();
-                        continue;
-                    }
-                    if (shooter == null || !FTBChunksCompat.canDamageEntity(level, entity, shooter)) {
-                        blockedAny = true;
-                        blockedPos = entityPos.immutable();
-                        continue;
-                    }
-                }
+            if (respectClaims && !ClaimGuards.canDamageEntity(level, shooter, entity)) {
+                blockedAny = true;
+                blockedPos = entity.blockPosition().immutable();
+                continue;
             }
 
             // Reset invulnerability frames a bit so the big blast actually lands
@@ -191,16 +180,12 @@ public final class OrbitalRailgunStrikeManager {
 
     private static void explode(ServerLevel level, ActiveStrike strike) {
         BlockPos center = strike.key.pos();
-        boolean respectClaims = OrbitalConfig.RESPECT_CLAIMS.get() && FTBChunksCompat.isLoaded();
-        boolean allowExplosions = OrbitalConfig.ALLOW_EXPLOSIONS_IN_CLAIMS.get();
-        boolean allowBlockBreak = OrbitalConfig.ALLOW_BLOCK_BREAK_IN_CLAIMS.get();
+        boolean respectClaims = areClaimsEnforced();
         ServerPlayer shooter = respectClaims ? resolveShooter(level, strike) : null;
 
-        if (respectClaims && FTBChunksCompat.isPositionClaimed(level, center)) {
-            if (!allowExplosions || shooter == null || !FTBChunksCompat.canExplode(level, center, shooter)) {
-                notifyClaimBlocked(strike, shooter, ClaimBlockType.EXPLOSION, center);
-                return;
-            }
+        if (respectClaims && !ClaimGuards.canAffectPosFromPos(level, center, level, center, shooter)) {
+            notifyClaimBlocked(strike, shooter, ClaimBlockType.EXPLOSION, center);
+            return;
         }
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
@@ -227,17 +212,10 @@ public final class OrbitalRailgunStrikeManager {
                     BlockState state = level.getBlockState(mutable);
                     if (state.isAir()) continue;
 
-                    if (respectClaims && FTBChunksCompat.isPositionClaimed(level, mutable)) {
-                        if (!allowBlockBreak) {
-                            blockedAny = true;
-                            blockedPos = mutable.immutable();
-                            continue;
-                        }
-                        if (shooter == null || !FTBChunksCompat.canModifyBlock(level, mutable, shooter)) {
-                            blockedAny = true;
-                            blockedPos = mutable.immutable();
-                            continue;
-                        }
+                    if (respectClaims && !ClaimGuards.canBreakBlock(level, shooter, mutable)) {
+                        blockedAny = true;
+                        blockedPos = mutable.immutable();
+                        continue;
                     }
 
                     double maxHardness = OrbitalConfig.MAX_BREAK_HARDNESS.get();
@@ -282,6 +260,12 @@ public final class OrbitalRailgunStrikeManager {
             StrikeExecutor.begin(level, center, diameter);
             StrikeExecutor.filterAllowed(allowedPositions);
         }
+    }
+
+    private static boolean areClaimsEnforced() {
+        boolean ftb = ClaimCompat.hasFTB() && OrbitalConfig.RESPECT_CLAIMS.get();
+        boolean opac = ClaimCompat.hasOPAC() && OrbitalConfig.RESPECT_OPAC_CLAIMS.get();
+        return ftb || opac;
     }
 
     private static ServerPlayer resolveShooter(ServerLevel level, ActiveStrike strike) {

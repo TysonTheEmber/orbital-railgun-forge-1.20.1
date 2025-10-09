@@ -10,7 +10,7 @@ It targets Java 17 and uses Parchment mappings via the Librarian ForgeGradle plu
 * **Networking:** Vanilla networking calls were replaced with Forge's `SimpleChannel`. Clients request a strike via `C2S_RequestFire`, the server validates the request, triggers `OrbitalRailgunStrikeManager`, and notifies nearby players with `S2C_PlayStrikeEffects`.
 * **Strike manager:** Server-side strike logic mirrors the Fabric behaviour, including entity knockback, delayed detonation, damage, and block removal using the original radius mask.
 * **Assets:** Shader programs, post chain JSON, Geckolib models, language strings, recipes, and damage types were migrated verbatim to the Forge resource layout.
-* **Claims compatibility:** When FTB Chunks is installed the railgun respects land claims, with configurable rules for explosions, block breaking, and entity damage.
+* **Claims compatibility:** When FTB Chunks or Open Parties & Claims are installed the railgun respects land claims, with configurable rules for explosions, block breaking, and entity damage.
 
 ## Development
 
@@ -37,6 +37,7 @@ gradle build
 Common configuration values live in `config/orbital-railgun-common.toml`. In addition to damage, cooldown, and blacklist settings the mod exposes claim-protection toggles:
 
 * `respectClaims` — master switch enabling FTB Chunks claim protection.
+* `respectOPACClaims` — toggle Open Parties & Claims protection when the mod is present.
 * `allowEntityDamageInClaims` — allow entity damage in claims when the shooter has permission.
 * `allowBlockBreakInClaims` — allow block destruction in claims when the shooter has permission.
 * `allowExplosionsInClaims` — allow the explosion effect in claims when the shooter has permission.
