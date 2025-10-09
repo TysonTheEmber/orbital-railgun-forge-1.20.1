@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.TickEvent;
@@ -13,6 +14,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
+import net.tysontheember.orbitalrailgun.util.OrbitalRailgunStrikeManager;
+import net.tysontheember.orbitalrailgun.util.OrbitalRailgunStrikeManager.StrikeRequestResult;
+import org.jetbrains.annotations.Nullable;
 
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class StrikeExecutor {
@@ -21,6 +25,22 @@ public final class StrikeExecutor {
     private static ServerLevel LEVEL;
 
     private StrikeExecutor() {}
+
+    /**
+     * Queues an orbital strike using the shared strike manager logic.
+     *
+     * @param level     server level the strike should run in.
+     * @param impactCenter position of the strike impact.
+     * @param power     damage multiplier supplied by the caller.
+     * @param radius    horizontal radius in blocks.
+     * @param requester optional player responsible for the strike (used for claim checks).
+     * @return result describing whether the strike was accepted.
+     */
+    public static StrikeRequestResult queueStrike(ServerLevel level, BlockPos impactCenter, float power, int radius,
+                                                  @Nullable ServerPlayer requester) {
+        double requestedRadius = Math.max(radius, 0);
+        return OrbitalRailgunStrikeManager.requestStrike(level, impactCenter, requester, requestedRadius, power, true);
+    }
 
     public static void begin(ServerLevel level, BlockPos impactCenter, double diameter) {
         LEVEL = level;

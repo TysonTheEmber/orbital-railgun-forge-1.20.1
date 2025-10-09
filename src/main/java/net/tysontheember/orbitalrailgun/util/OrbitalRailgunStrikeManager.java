@@ -31,6 +31,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.tysontheember.orbitalrailgun.compat.ClaimCompat;
 import net.tysontheember.orbitalrailgun.compat.ClaimGuards;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -44,6 +45,22 @@ public final class OrbitalRailgunStrikeManager {
     private static final Component CLAIM_BLOCKED_MESSAGE = Component.literal("❌ Railgun blocked by claim protection.");
 
     private static final Map<StrikeKey, ActiveStrike> ACTIVE_STRIKES = new ConcurrentHashMap<>();
+
+    /**
+     * Result returned when requesting a new orbital strike.
+     *
+     * @param success whether the strike was scheduled.
+     * @param message optional error message when the strike cannot be scheduled.
+     */
+    public record StrikeRequestResult(boolean success, @Nullable Component message) {
+        public static StrikeRequestResult success() {
+            return new StrikeRequestResult(true, null);
+        }
+
+        public static StrikeRequestResult failure(Component message) {
+            return new StrikeRequestResult(false, message);
+        }
+    }
 
     private OrbitalRailgunStrikeManager() {}
 
@@ -59,21 +76,95 @@ public final class OrbitalRailgunStrikeManager {
         double configuredDiameter = OrbitalConfig.DESTRUCTION_DIAMETER.get();
         double clampedDiameter = Mth.clamp(configuredDiameter, 1.0D, 256.0D);
         double radius = clampedDiameter * 0.5D;
+        requestStrike(serverLevel, target, player, radius, 1.0F);
+    }
 
+    /**
+     * Requests an orbital strike at the supplied position.
+     *
+     * @param level            level to strike.
+     * @param target           center of the strike.
+     * @param shooter          optional shooter used for claim checks.
+     * @param radius           horizontal radius in blocks.
+     * @param damageMultiplier scale applied to configured damage when detonating.
+     * @return result describing whether the strike was accepted.
+     */
+    public static StrikeRequestResult requestStrike(ServerLevel level, BlockPos target, @Nullable ServerPlayer shooter,
+                                                    double radius, float damageMultiplier) {
+        return requestStrike(level, target, shooter, radius, damageMultiplier, false);
+    }
+
+    /**
+     * Requests an orbital strike at the supplied position with optional claim validation.
+     *
+     * @param level            level to strike.
+     * @param target           center of the strike.
+     * @param shooter          optional shooter used for claim checks.
+     * @param radius           horizontal radius in blocks.
+     * @param damageMultiplier scale applied to configured damage when detonating.
+     * @param validateClaims   whether to validate claim permissions immediately.
+     * @return result describing whether the strike was accepted.
+     */
+    public static StrikeRequestResult requestStrike(ServerLevel level, BlockPos target, @Nullable ServerPlayer shooter,
+                                                    double radius, float damageMultiplier, boolean validateClaims) {
+        if (level.isClientSide()) {
+            return StrikeRequestResult.failure(Component.literal("Orbital strikes can only be scheduled on the server."));
+        }
+
+        double normalizedRadius = Mth.clamp(radius, 0.5D, 128.0D);
+        float normalizedMultiplier = Math.max(0.0F, damageMultiplier);
+
+        if (validateClaims && areClaimsEnforced()) {
+            if (shooter == null) {
+                Component message = Component.literal(String.format(
+                        "Strike blocked: a player context is required for claim checks at %d, %d, %d.",
+                        target.getX(), target.getY(), target.getZ()));
+                return StrikeRequestResult.failure(message);
+            }
+            if (!ClaimGuards.canAffectPosFromPos(level, target, level, target, shooter)) {
+                shooter.displayClientMessage(CLAIM_BLOCKED_MESSAGE, true);
+                Component message = Component.literal(String.format(
+                        "Strike blocked by claim protection at %d, %d, %d.",
+                        target.getX(), target.getY(), target.getZ()));
+                return StrikeRequestResult.failure(message);
+            }
+        }
+
+        scheduleStrike(level, target, shooter, normalizedRadius, normalizedMultiplier);
+        return StrikeRequestResult.success();
+    }
+
+    private static void scheduleStrike(ServerLevel level, BlockPos target, @Nullable ServerPlayer shooter,
+                                       double radius, float damageMultiplier) {
         double trackedExtent = Math.max(radius * 4.0D, 128.0D);
-        List<Entity> tracked = new ArrayList<>(serverLevel.getEntities(null, AABB.ofSize(Vec3.atCenterOf(target), trackedExtent, trackedExtent, trackedExtent)));
-        StrikeKey key = new StrikeKey(serverLevel.dimension(), target.immutable());
-        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, player.getServer().getTickCount(), player.getUUID(), radius));
+        List<Entity> tracked = new ArrayList<>(level.getEntities(null,
+                AABB.ofSize(Vec3.atCenterOf(target), trackedExtent, trackedExtent, trackedExtent)));
+        StrikeKey key = new StrikeKey(level.dimension(), target.immutable());
+        UUID shooterId = shooter != null ? shooter.getUUID() : null;
+        int tickCount = level.getServer().getTickCount();
+        ACTIVE_STRIKES.put(key, new ActiveStrike(key, tracked, tickCount, shooterId, radius, damageMultiplier));
 
         if (ModSounds.RAILGUN_SHOOT.isPresent()) {
-            serverLevel.playSound(null,
-                    player.getX(), player.getY(), player.getZ(),
+            double soundX;
+            double soundY;
+            double soundZ;
+            if (shooter != null) {
+                soundX = shooter.getX();
+                soundY = shooter.getY();
+                soundZ = shooter.getZ();
+            } else {
+                soundX = target.getX();
+                soundY = target.getY();
+                soundZ = target.getZ();
+            }
+            level.playSound(null, soundX, soundY, soundZ,
                     ModSounds.RAILGUN_SHOOT.get(), SoundSource.PLAYERS, 1.6F, 1.0F);
         }
         float serverRadius = (float) radius;
         Network.CHANNEL.send(
-                PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(), 512.0D, serverLevel.dimension())),
-                new S2C_PlayStrikeEffects(target, serverLevel.dimension(), serverRadius)
+                PacketDistributor.NEAR.with(() -> new PacketDistributor.TargetPoint(target.getX(), target.getY(), target.getZ(),
+                        512.0D, level.dimension())),
+                new S2C_PlayStrikeEffects(target, level.dimension(), serverRadius)
         );
     }
 
@@ -139,7 +230,7 @@ public final class OrbitalRailgunStrikeManager {
         // Bail if disabled
         double configuredDamage = OrbitalConfig.STRIKE_DAMAGE.get();
         if (configuredDamage <= 0.0D) return;
-        float damage = (float) configuredDamage;
+        float damage = (float) configuredDamage * strike.damageMultiplier;
 
         // Respect claims (same flags you already use)
         boolean respectClaims = areClaimsEnforced();
@@ -299,17 +390,20 @@ public final class OrbitalRailgunStrikeManager {
         private final UUID shooter;
         private final double radiusSquared;
         private final int horizontalRange;
+        private final float damageMultiplier;
         private boolean blockNotified;
         private boolean explosionNotified;
         private boolean damageNotified;
 
-        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooter, double radius) {
+        private ActiveStrike(StrikeKey key, List<Entity> entities, int startTick, UUID shooter, double radius,
+                             float damageMultiplier) {
             this.key = key;
             this.entities = entities;
             this.startTick = startTick;
             this.shooter = shooter;
             this.radiusSquared = radius * radius;
             this.horizontalRange = Math.max(0, Mth.ceil(radius));
+            this.damageMultiplier = damageMultiplier;
         }
 
         private boolean markNotified(ClaimBlockType type) {
