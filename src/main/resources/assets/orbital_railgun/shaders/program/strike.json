@@ -21,6 +21,12 @@
     { "name": "BlockPosition",       "type": "float",     "count": 3,  "values": [ 0.0, 0.0, 0.0 ] },
     { "name": "iTime",       "type": "float",     "count": 1,  "values": [ 0.0 ] },
     { "name": "StrikeActive",       "type": "float",     "count": 1,  "values": [ 0.0 ] },
-    { "name": "StrikeRadius",       "type": "float",     "count": 1,  "values": [ 1.0 ] }
+    { "name": "StrikeRadius",       "type": "float",     "count": 1,  "values": [ 1.0 ] },
+    { "name": "u_BeamColor", "type": "float", "count": 3, "values": [ 1.0, 0.478, 0.0 ] },
+    { "name": "u_BeamAlpha", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "u_MarkerInnerColor", "type": "float", "count": 3, "values": [ 1.0, 0.659, 0.0 ] },
+    { "name": "u_MarkerInnerAlpha", "type": "float", "count": 1, "values": [ 0.95 ] },
+    { "name": "u_MarkerOuterColor", "type": "float", "count": 3, "values": [ 1.0, 0.239, 0.0 ] },
+    { "name": "u_MarkerOuterAlpha", "type": "float", "count": 1, "values": [ 0.85 ] }
   ]
 }

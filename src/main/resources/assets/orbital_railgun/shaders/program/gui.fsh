@@ -22,6 +22,15 @@ vec2 scale = vec2(0.);
 uniform float iTime;
 uniform float StrikeRadius;
 
+uniform vec3  u_BeamColor;
+uniform float u_BeamAlpha;
+
+uniform vec3  u_MarkerInnerColor;
+uniform float u_MarkerInnerAlpha;
+
+uniform vec3  u_MarkerOuterColor;
+uniform float u_MarkerOuterAlpha;
+
 in vec2 texCoord;
 in float viewHeight;
 in float viewWidth;
@@ -51,7 +60,7 @@ float sdBox(vec2 p, vec2 s) {
     return length(max(p, 0.)) + min(max(p.x, p.y), 0.);
 }
 
-vec3 renderUi(vec3 original, float dist) {
+vec4 computeUiLayer(float dist) {
     vec3 col = green;
     vec3 overlay = mix(col, col / 2., smoothstep(0.01, 0., dist));
     float threshold = 0.25 * step(0., -dist) + step(0., dist) * 0.004 / dist;
@@ -63,7 +72,8 @@ vec3 renderUi(vec3 original, float dist) {
     float glitch = 1. + 0.2 * pcg_hash(uint(round((texCoord.x + texCoord.y * viewHeight) * viewWidth) + round(iTime * viewWidth * viewHeight)));
     overlay *= glitch;
 
-    return mix(original, overlay, threshold * SelectionActive);
+    float alpha = clamp(threshold * SelectionActive, 0., 1.);
+    return vec4(overlay, alpha);
 }
 
 vec2 raycast(vec3 point, vec3 dir) {
@@ -121,16 +131,31 @@ void main() {
     float withinAOE = length(AOE) - radius;
     float indicator = 0.05 / min(abs(withinAOE), min(max(min(sdBox(AOE, vec2(5.5, 0.)), sdBox(AOE, vec2(0., 5.5))), -length(AOE) + 1.5), abs(length(AOE) - 2.5)));
 
-    vec3 original = texture(DiffuseSampler, texCoord).rgb + (red * 0.03 / sDist(end_point) + blue * indicator + blue / 5. * step(withinAOE, 0.)) * coveredByScreen;
+    vec3 baseScene = texture(DiffuseSampler, texCoord).rgb;
+    vec3 redContribution = red * 0.03 / sDist(end_point) * coveredByScreen;
+
+    vec3 outerBaseRgb = blue * indicator + blue / 5. * step(withinAOE, 0.);
+    vec4 outer = vec4(outerBaseRgb, coveredByScreen);
+    outer.rgb *= u_MarkerOuterColor;
+    outer.a *= u_MarkerOuterAlpha;
+
+    vec3 original = baseScene + redContribution + outer.rgb * outer.a;
 
     vec3 world = mix(original, red, threshold);
 
-    vec3 overlay = renderUi(world, sdBox(uv, vec2(0.45)));
+    vec4 innerBase = computeUiLayer(sdBox(uv, vec2(0.45)));
+    vec4 inner = vec4(innerBase.rgb * u_MarkerInnerColor, innerBase.a * u_MarkerInnerAlpha);
+    float innerAlpha = clamp(inner.a, 0., 1.);
+    vec3 overlay = mix(world, inner.rgb, innerAlpha);
 
     uv.x *= max(viewWidth, viewHeight) / min(viewWidth, viewHeight);
     uv *= rotationMatrix;
     float crosshair = max(min(sdBox(uv, vec2(0.001, 0.03)), sdBox(uv, vec2(0.03, 0.001))), -sdBox(uv, vec2(0.012)));
-    overlay = max(overlay, renderUi(overlay, crosshair));
+    vec4 crossBase = computeUiLayer(crosshair);
+    vec4 cross = vec4(crossBase.rgb * u_MarkerInnerColor, crossBase.a * u_MarkerInnerAlpha);
+    float crossAlpha = clamp(cross.a, 0., 1.);
+    vec3 overlayWithCrosshair = mix(overlay, cross.rgb, crossAlpha);
+    overlay = max(overlay, overlayWithCrosshair);
 
     fragColor = vec4(overlay, 1.);
 }

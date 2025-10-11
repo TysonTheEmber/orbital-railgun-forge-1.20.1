@@ -3,9 +3,12 @@ package net.tysontheember.orbitalrailgun.config;
 import java.util.List;
 
 import net.minecraftforge.common.ForgeConfigSpec;
+import org.apache.commons.lang3.tuple.Pair;
 
 public final class OrbitalConfig {
     public static final ForgeConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
+    public static final Client CLIENT;
     public static final ForgeConfigSpec.DoubleValue RANGE;
     public static final ForgeConfigSpec.DoubleValue MAX_BREAK_HARDNESS;
     public static final ForgeConfigSpec.IntValue COOLDOWN;
@@ -96,6 +99,10 @@ public final class OrbitalConfig {
 
         COMMON_SPEC = builder.build();
 
+        Pair<Client, ForgeConfigSpec> client = new ForgeConfigSpec.Builder().configure(Client::new);
+        CLIENT = client.getLeft();
+        CLIENT_SPEC = client.getRight();
+
     }
 
     private OrbitalConfig() {}
@@ -107,5 +114,47 @@ public final class OrbitalConfig {
             if (s != null && target.equals(s.trim().toLowerCase())) return true;
         }
         return false;
+    }
+
+    public static final class Client {
+        public final ForgeConfigSpec.ConfigValue<String> beamColorHex;
+        public final ForgeConfigSpec.DoubleValue beamAlpha;
+
+        public final ForgeConfigSpec.ConfigValue<String> markerInnerHex;
+        public final ForgeConfigSpec.DoubleValue markerInnerAlpha;
+
+        public final ForgeConfigSpec.ConfigValue<String> markerOuterHex;
+        public final ForgeConfigSpec.DoubleValue markerOuterAlpha;
+
+        Client(ForgeConfigSpec.Builder builder) {
+            builder.push("client");
+
+            builder.comment("Color overrides for the orbital railgun beam and targeting marker.");
+            builder.push("shaderColors");
+
+            beamColorHex = builder
+                    .comment("Hex color (#RRGGBB or #RRGGBBAA) applied to the beam shader tint.")
+                    .define("beamColor", "#FF7A00");
+            beamAlpha = builder
+                    .comment("Alpha multiplier applied to the beam shader.")
+                    .defineInRange("beamAlpha", 1.0D, 0.0D, 1.0D);
+
+            markerInnerHex = builder
+                    .comment("Hex color (#RRGGBB or #RRGGBBAA) for the targeting marker inner elements.")
+                    .define("markerInnerColor", "#FFA800");
+            markerInnerAlpha = builder
+                    .comment("Alpha multiplier for the targeting marker inner elements.")
+                    .defineInRange("markerInnerAlpha", 0.95D, 0.0D, 1.0D);
+
+            markerOuterHex = builder
+                    .comment("Hex color (#RRGGBB or #RRGGBBAA) for the targeting marker outer elements.")
+                    .define("markerOuterColor", "#FF3D00");
+            markerOuterAlpha = builder
+                    .comment("Alpha multiplier for the targeting marker outer elements.")
+                    .defineInRange("markerOuterAlpha", 0.85D, 0.0D, 1.0D);
+
+            builder.pop();
+            builder.pop();
+        }
     }
 }
