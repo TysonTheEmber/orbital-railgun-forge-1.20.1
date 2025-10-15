@@ -7,7 +7,9 @@
       "name": "orbital_railgun:strike",
       "intarget": "minecraft:main",
       "outtarget": "minecraft:main",
-      "auxtargets": []
+      "auxtargets": [
+        { "name": "DepthSampler", "id": "minecraft:main:depth" }
+      ]
     }
   ]
 }
