@@ -1,0 +1,16 @@
+{
+  "targets": [
+    "swap"
+  ],
+  "passes": [
+    {
+      "name": "orbital_railgun:strike",
+      "intarget": "minecraft:main",
+      "outtarget": "minecraft:main",
+      "auxtargets": [],
+      "uniforms": [
+        { "name": "Time", "values": [0.0] }
+      ]
+    }
+  ]
+}

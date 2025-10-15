@@ -40,7 +40,6 @@ import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import org.joml.Matrix4f;
 
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +48,8 @@ import java.util.Set;
 @OnlyIn(Dist.CLIENT)
 @Mod.EventBusSubscriber(modid = ForgeOrbitalRailgunMod.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ClientEvents {
-    private static final ResourceLocation RAILGUN_CHAIN_ID = ForgeOrbitalRailgunMod.id("shaders/post/railgun.json");
+    private static final String STRIKE_CHAIN_PATH = "shaders/post/strike.json";
+    private static final ResourceLocation STRIKE_CHAIN_ID = ForgeOrbitalRailgunMod.id(STRIKE_CHAIN_PATH);
     private static final Field PASSES_FIELD = findPassesField();
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
@@ -146,14 +146,14 @@ public final class ClientEvents {
         }
 
         try {
-            railgunChain = new PostChain(minecraft.getTextureManager(), resourceManager, minecraft.getMainRenderTarget(), RAILGUN_CHAIN_ID);
+            railgunChain = new PostChain(minecraft.getTextureManager(), resourceManager, minecraft.getMainRenderTarget(), STRIKE_CHAIN_ID);
             chainReady = true;
             chainWidth = -1;
             chainHeight = -1;
             resizeChain(minecraft);
-            ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Built PostChain (no shaderpack active).");
-        } catch (IOException exception) {
-            ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
+            ForgeOrbitalRailgunMod.LOGGER.info("Loaded orbital railgun post chain: {}", STRIKE_CHAIN_PATH);
+        } catch (Exception exception) {
+            ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain ({}). Disabling effect.", STRIKE_CHAIN_PATH, exception);
             chainReady = false;
             closeChain();
         }
