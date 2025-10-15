@@ -14,6 +14,15 @@ uniform float iTime;
 uniform float StrikeActive;
 uniform float StrikeRadius;
 
+uniform vec3  u_BeamColor;
+uniform float u_BeamAlpha;
+
+uniform vec3  u_MarkerInnerColor;
+uniform float u_MarkerInnerAlpha;
+
+uniform vec3  u_MarkerOuterColor;
+uniform float u_MarkerOuterAlpha;
+
 const vec3 blue = vec3(0.62, 0.93, 0.93);
 
 const float startTime = 4.;
@@ -143,9 +152,12 @@ void main() {
             -min(sdBox(end_point.xz, vec2(0., radius)), sdBox(end_point.xz, vec2(radius, 0.)))
         );
         vec3 col = original + 0.2 / pow(dist, 2.) * blue * step(length(end_point), localTime * 20.);
-        col = mix(col, vec3(0.), pow(max(localTime - 3., 0.), 2.)), 1.;
+        col = mix(col, vec3(0.), pow(max(localTime - 3., 0.), 2.));
 
-        fragColor = vec4(col, 1.);
+        vec4 color = vec4(col, 1.);
+        color.rgb *= u_BeamColor;
+        color.a *= u_BeamAlpha;
+        fragColor = color;
         return;
     }
 
@@ -162,5 +174,9 @@ void main() {
     threshold *= 1. - pow(clamp(iTime / endTime - 1., 0., 1.), 2.);
     vec3 shockwave_color = mix(blue, vec3(1.), clamp(iTime / endTime - 1., 0., 1.));
 
-    fragColor = vec4(mix(original * shockwave(end_point) * shockwave_color, vec3(col), threshold), 1.);
+    vec3 beamColor = mix(original * shockwave(end_point) * shockwave_color, vec3(col), threshold);
+    vec4 color = vec4(beamColor, 1.);
+    color.rgb *= u_BeamColor;
+    color.a *= u_BeamAlpha;
+    fragColor = color;
 }

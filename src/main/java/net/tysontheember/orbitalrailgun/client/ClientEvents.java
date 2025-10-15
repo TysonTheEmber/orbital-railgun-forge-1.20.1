@@ -275,7 +275,14 @@ public final class ClientEvents {
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
         Vec3 cameraPos = event.getCamera().getPosition();
 
+        List<PostPass> passes = getPasses();
+        if (passes.isEmpty()) {
+            if (!paused) clearPauseLatch();
+            return;
+        }
+
         applyUniforms(
+                passes,
                 modelView, projection, inverseProjection,
                 cameraPos, targetPos,
                 distance, effectSeconds,
@@ -284,6 +291,8 @@ public final class ClientEvents {
                 state,
                 hitKindOrdinal
         );
+
+        OrbitalShaderUniforms.applyColorUniforms(passes);
 
         // Process the post chain
         railgunChain.process(partial);
@@ -388,13 +397,13 @@ public final class ClientEvents {
     }
 
     private static void applyUniforms(
+            List<PostPass> passes,
             Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection,
             Vec3 cameraPos, Vec3 targetPos,
             float distance, float timeSeconds,
             float isBlockHit, boolean strikeActive,
             RailgunState state, int hitKindOrdinal
     ) {
-        List<PostPass> passes = getPasses();
         if (passes.isEmpty()) return;
 
         Minecraft minecraft = Minecraft.getInstance();
