@@ -32,6 +32,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
+import net.tysontheember.orbitalrailgun.client.fx.StrikePostChains;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
@@ -39,6 +40,7 @@ import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -109,6 +111,7 @@ public final class ClientEvents {
                 // If a shaderpack is active, keep our chain torn down; otherwise (re)load it.
                 if (isShaderpackActive()) {
                     closeChain();
+                    StrikePostChains.close();
                     clearPauseLatch();
                     ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active — skipping PostChain build on reload.");
                 } else {
@@ -134,6 +137,7 @@ public final class ClientEvents {
         if (isShaderpackActive()) {
             // Hard guard: never build while a shaderpack is running.
             closeChain();
+            StrikePostChains.close();
             chainReady = false;
             return;
         }
@@ -151,11 +155,13 @@ public final class ClientEvents {
             chainWidth = -1;
             chainHeight = -1;
             resizeChain(minecraft);
+            StrikePostChains.reload(resourceManager);
             ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Built PostChain (no shaderpack active).");
         } catch (IOException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
             chainReady = false;
             closeChain();
+            StrikePostChains.close();
         }
     }
 
@@ -179,6 +185,7 @@ public final class ClientEvents {
         if (isShaderpackActive()) return; // skip any PostChain handling while shaderpack active
         if (!chainReady || railgunChain == null) return;
         resizeChain(Minecraft.getInstance());
+        StrikePostChains.resize(Minecraft.getInstance());
     }
 
     @SubscribeEvent
@@ -204,6 +211,21 @@ public final class ClientEvents {
         boolean paused = minecraft.isPaused();
         float partial = paused ? 0f : event.getPartialTick();
 
+        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
+        Matrix4f inverseProjection = new Matrix4f(projection).invert();
+        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
+        Vec3 cameraPos = event.getCamera().getPosition();
+
+        StrikePostChains.renderMarker(
+                projection,
+                inverseProjection,
+                modelView,
+                new Vector3f((float) cameraPos.x, (float) cameraPos.y, (float) cameraPos.z),
+                partial,
+                chargeActiveLive,
+                state
+        );
+
         // ---- Latch a snapshot on the first paused frame while the effect is active ----
         if (paused && anyActiveLive && !pausedLatched) {
             pausedLatched = true;
@@ -219,8 +241,7 @@ public final class ClientEvents {
             Vec3 liveTarget = strikeActiveLive ? state.getStrikePos() : state.getHitPos();
             latchedTargetPos = liveTarget == null ? Vec3.ZERO : liveTarget;
 
-            Vec3 cam = event.getCamera().getPosition();
-            latchedDistance = (float) (latchedTargetPos == null ? 0.0 : cam.distanceTo(latchedTargetPos));
+            latchedDistance = (float) (latchedTargetPos == null ? 0.0 : cameraPos.distanceTo(latchedTargetPos));
 
             latchedHitKind = state.getHitKind().ordinal();
         }
@@ -260,8 +281,7 @@ public final class ClientEvents {
             targetPos = renderStrike ? state.getStrikePos() : state.getHitPos();
             if (targetPos == null) targetPos = Vec3.ZERO;
 
-            Vec3 cam = event.getCamera().getPosition();
-            distance = (float) cam.distanceTo(targetPos);
+            distance = (float) cameraPos.distanceTo(targetPos);
 
             hitKindOrdinal = state.getHitKind().ordinal();
 
@@ -270,11 +290,6 @@ public final class ClientEvents {
         }
 
         // ---- Upload uniforms and render ----
-        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
-        Matrix4f inverseProjection = new Matrix4f(projection).invert();
-        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
-        Vec3 cameraPos = event.getCamera().getPosition();
-
         List<PostPass> passes = getPasses();
         if (passes.isEmpty()) {
             if (!paused) clearPauseLatch();
@@ -536,6 +551,7 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+        StrikePostChains.close();
     }
 
     private static void handleChargeAudio(RailgunState state) {
