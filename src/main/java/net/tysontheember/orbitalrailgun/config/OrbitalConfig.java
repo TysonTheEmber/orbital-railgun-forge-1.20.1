@@ -56,7 +56,7 @@ public final class OrbitalConfig {
                 .define("suckEntities", true);
         DESTRUCTION_DIAMETER = builder
                 .comment("Diameter in blocks used for destruction/physics (server-authoritative).")
-                .defineInRange("destructionDiameter", 12.0D, 1.0D, 256.0D);
+                .defineInRange("destructionDiameter", 16.0D, 1.0D, 256.0D);
         BLOCKS_PER_TICK = builder
                 .comment("Max blocks removed per server tick for an active strike (performance safety).")
                 .defineInRange("blocksPerTick", 2000, 1, 200000);

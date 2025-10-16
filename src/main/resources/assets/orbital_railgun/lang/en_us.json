@@ -2,7 +2,7 @@
   "item.orbital_railgun.orbital_railgun": "Orbital Railgun Reforged",
   "item.orbital_railgun.orbital_railgun.tooltip": "Calls down a devastating orbital strike.",
   "item.orbital_railgun.orbital_railgun.tooltip.shift1": "⚡ Hold to charge; release at full power.",
-  "item.orbital_railgun.orbital_railgun.tooltip.shift2": "⚙ Configurable hardness cap & blacklist (common.toml).",
+  "item.orbital_railgun.orbital_railgun.tooltip.shift2": "⚙ Highly configurable",
   "item.orbital_railgun.orbital_railgun.tooltip.shift3": "⚠ Shader effects are incompatible with Oculus shader packs\nso you will not see the mods shader effects while using shader packs.",
   "tooltip.orbital_railgun.hold_shift": "Hold ⇧ Shift for details",
   "death.attack.strike": "%1$s was obliterated by an Orbital Strike",
