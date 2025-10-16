@@ -194,7 +194,7 @@ public final class ClientEvents {
         if (isShaderpackActive()) return;
 
         if (!chainReady || railgunChain == null) return;
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) return;
