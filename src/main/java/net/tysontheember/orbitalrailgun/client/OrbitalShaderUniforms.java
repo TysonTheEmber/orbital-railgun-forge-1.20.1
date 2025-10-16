@@ -23,6 +23,12 @@ public final class OrbitalShaderUniforms {
         float[] beam = parseHexColor(c.beamColorHex.get(), c.beamAlpha.get());
         float[] inner = parseHexColor(c.markerInnerHex.get(), c.markerInnerAlpha.get());
         float[] outer = parseHexColor(c.markerOuterHex.get(), c.markerOuterAlpha.get());
+        float[] marker = new float[] {
+                (inner[0] + outer[0]) * 0.5F,
+                (inner[1] + outer[1]) * 0.5F,
+                (inner[2] + outer[2]) * 0.5F,
+                Math.max(inner[3], outer[3])
+        };
 
         for (PostPass pass : passes) {
             EffectInstance shader = pass.getEffect();
@@ -36,6 +42,8 @@ public final class OrbitalShaderUniforms {
 
             set3f(shader, "u_MarkerOuterColor", outer[0], outer[1], outer[2]);
             set1f(shader, "u_MarkerOuterAlpha", outer[3]);
+
+            set4f(shader, "u_MarkerColor", marker[0], marker[1], marker[2], marker[3]);
         }
     }
 
@@ -47,5 +55,10 @@ public final class OrbitalShaderUniforms {
     private static void set3f(EffectInstance shader, String name, float x, float y, float z) {
         var u = shader.getUniform(name);
         if (u != null) u.set(x, y, z);
+    }
+
+    private static void set4f(EffectInstance shader, String name, float x, float y, float z, float w) {
+        var u = shader.getUniform(name);
+        if (u != null) u.set(x, y, z, w);
     }
 }

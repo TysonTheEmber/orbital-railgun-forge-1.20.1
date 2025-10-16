@@ -5,6 +5,7 @@
 
 uniform sampler2D DiffuseSampler;
 uniform sampler2D DepthSampler;
+uniform mat4 ProjMat;
 uniform mat4 InverseTransformMatrix;
 uniform mat4 ModelViewMat;
 uniform vec3 CameraPosition;
@@ -12,6 +13,7 @@ uniform vec3 BlockPosition;
 
 uniform float iTime;
 uniform float StrikeActive;
+uniform float SelectionActive;
 uniform float StrikeRadius;
 
 uniform vec3  u_BeamColor;
@@ -22,6 +24,7 @@ uniform float u_MarkerInnerAlpha;
 
 uniform vec3  u_MarkerOuterColor;
 uniform float u_MarkerOuterAlpha;
+uniform vec4  u_MarkerColor;
 
 const vec3 blue = vec3(0.62, 0.93, 0.93);
 
@@ -130,53 +133,112 @@ float sdBox(vec2 p, vec2 s) {
     return length(max(p, 0.)) + min(max(p.x, p.y), 0.);
 }
 
+vec4 applyMarker(vec4 baseColor, float depth) {
+    if (SelectionActive < 0.5) {
+        return baseColor;
+    }
+
+    vec3 relative = BlockPosition - CameraPosition;
+    vec4 clip = ProjMat * ModelViewMat * vec4(relative, 1.0);
+    if (clip.w <= 0.0) {
+        return baseColor;
+    }
+
+    if (depth >= 0.999) {
+        return baseColor;
+    }
+
+    vec2 screenPos = (clip.xy / clip.w) * 0.5 + 0.5;
+    vec2 delta = texCoord - screenPos;
+    float dist = length(delta);
+
+    float radius = clamp(StrikeRadius, 1.0, 64.0) / 200.0;
+    float thickness = 0.0035;
+
+    float ring = smoothstep(radius, radius - thickness, dist) * smoothstep(radius + thickness, radius, dist);
+
+    vec2 diagonal = normalize(vec2(1.0, 1.0));
+    vec2 dir = dist > 1e-5 ? delta / dist : diagonal;
+    float ang = abs(dot(dir, diagonal));
+    float cross = smoothstep(0.72, 0.70, ang) * smoothstep(radius * 0.28, radius * 0.18, dist);
+
+    float markerMask = clamp(ring + cross, 0.0, 1.0);
+
+    float ringAlpha = u_MarkerOuterAlpha * ring;
+    float crossAlpha = u_MarkerInnerAlpha * cross;
+    float combinedAlpha = clamp(ringAlpha + crossAlpha, 0.0, 1.0);
+
+    float weightSum = ringAlpha + crossAlpha;
+    vec3 weightedColor = u_MarkerColor.rgb;
+    if (weightSum > 1e-5) {
+        weightedColor = (u_MarkerOuterColor * ringAlpha + u_MarkerInnerColor * crossAlpha) / weightSum;
+    }
+
+    vec3 markerRGB = mix(weightedColor, u_MarkerColor.rgb, 0.35);
+    float markerAlpha = clamp(max(u_MarkerColor.a * markerMask, combinedAlpha), 0.0, 1.0);
+
+    return mix(baseColor, vec4(markerRGB, 1.0), markerAlpha);
+}
+
 void main() {
-    vec3 original = texture(DiffuseSampler, texCoord).rgb;
-    if (StrikeActive < 0.5) {
-        fragColor = vec4(original, 1.0);
-        return;
-    }
-    localTime = iTime - startTime * step(startTime, iTime) - expansionTime * step(endTime, iTime);
-
+    vec4 originalSample = texture(DiffuseSampler, texCoord);
     float depth = texture(DepthSampler, texCoord).r;
-    vec3 start_point = worldPos(vec3(texCoord, 0)) - BlockPosition;
-    vec3 end_point = worldPos(vec3(texCoord, depth)) - BlockPosition;
-    vec3 dir = normalize(end_point - start_point);
 
-    if (iTime < startTime) {
-        end_point.xz = rotate(end_point.xz, pow(localTime / 2., 4.));
-        float radius = max(StrikeRadius, 0.0001);
-        float halfRadius = radius * 0.5;
-        float dist = max(
-            max(length(end_point.xz) - radius, -(length(end_point.xz) - halfRadius * (localTime - 1.7))),
-            -min(sdBox(end_point.xz, vec2(0., radius)), sdBox(end_point.xz, vec2(radius, 0.)))
-        );
-        vec3 col = original + 0.2 / pow(dist, 2.) * blue * step(length(end_point), localTime * 20.);
-        col = mix(col, vec3(0.), pow(max(localTime - 3., 0.), 2.));
+    bool strikeActive = StrikeActive > 0.5;
+    bool selectionActive = SelectionActive > 0.5;
 
-        vec4 color = vec4(col, 1.);
-        color.rgb *= u_BeamColor;
-        color.a *= u_BeamAlpha;
-        fragColor = color;
+    if (!strikeActive && !selectionActive) {
+        fragColor = vec4(originalSample.rgb, 1.0);
         return;
     }
 
-    vec2 hit_result = raycast(start_point, dir);
-    vec3 hit_point = start_point + dir * hit_result.x;
+    vec4 color = vec4(originalSample.rgb, 1.0);
 
-    vec3 col = mix(blue, vec3(0.), abs(sin(3.14 * localTime / expansionTime))) + vec3(smoothstep(5., 10., hit_result.y)) * blue;
+    if (strikeActive) {
+        localTime = iTime - startTime * step(startTime, iTime) - expansionTime * step(endTime, iTime);
 
-    float threshold = step(sDist(hit_point), MIN_DIST * 2.);
+        vec3 start_point = worldPos(vec3(texCoord, 0)) - BlockPosition;
+        vec3 end_point = worldPos(vec3(texCoord, depth)) - BlockPosition;
+        vec3 dir = normalize(end_point - start_point);
 
-    // cover by blocks
-    threshold *= step(distance(start_point, hit_point), distance(start_point, end_point));
+        if (iTime < startTime) {
+            end_point.xz = rotate(end_point.xz, pow(localTime / 2., 4.));
+            float radius = max(StrikeRadius, 0.0001);
+            float halfRadius = radius * 0.5;
+            float dist = max(
+                max(length(end_point.xz) - radius, -(length(end_point.xz) - halfRadius * (localTime - 1.7))),
+                -min(sdBox(end_point.xz, vec2(0., radius)), sdBox(end_point.xz, vec2(radius, 0.)))
+            );
+            vec3 col = originalSample.rgb + 0.2 / pow(dist, 2.) * blue * step(length(end_point), localTime * 20.);
+            col = mix(col, vec3(0.), pow(max(localTime - 3., 0.), 2.));
 
-    threshold *= 1. - pow(clamp(iTime / endTime - 1., 0., 1.), 2.);
-    vec3 shockwave_color = mix(blue, vec3(1.), clamp(iTime / endTime - 1., 0., 1.));
+            vec4 effectColor = vec4(col, 1.);
+            effectColor.rgb *= u_BeamColor;
+            effectColor.a *= u_BeamAlpha;
+            color = effectColor;
+        } else {
+            vec2 hit_result = raycast(start_point, dir);
+            vec3 hit_point = start_point + dir * hit_result.x;
 
-    vec3 beamColor = mix(original * shockwave(end_point) * shockwave_color, vec3(col), threshold);
-    vec4 color = vec4(beamColor, 1.);
-    color.rgb *= u_BeamColor;
-    color.a *= u_BeamAlpha;
+            vec3 col = mix(blue, vec3(0.), abs(sin(3.14 * localTime / expansionTime))) + vec3(smoothstep(5., 10., hit_result.y)) * blue;
+
+            float threshold = step(sDist(hit_point), MIN_DIST * 2.);
+
+            // cover by blocks
+            threshold *= step(distance(start_point, hit_point), distance(start_point, end_point));
+
+            threshold *= 1. - pow(clamp(iTime / endTime - 1., 0., 1.), 2.);
+            vec3 shockwave_color = mix(blue, vec3(1.), clamp(iTime / endTime - 1., 0., 1.));
+
+            vec3 beamColor = mix(originalSample.rgb * shockwave(end_point) * shockwave_color, vec3(col), threshold);
+            vec4 effectColor = vec4(beamColor, 1.);
+            effectColor.rgb *= u_BeamColor;
+            effectColor.a *= u_BeamAlpha;
+            color = effectColor;
+        }
+    }
+
+    color = applyMarker(color, depth);
+
     fragColor = color;
 }

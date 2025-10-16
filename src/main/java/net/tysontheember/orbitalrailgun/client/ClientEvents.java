@@ -32,15 +32,14 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
-import net.tysontheember.orbitalrailgun.client.fx.StrikePostChains;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.client.util.ClientRaycast;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
 import net.tysontheember.orbitalrailgun.network.Network;
 import net.tysontheember.orbitalrailgun.registry.ModSounds;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -111,7 +110,6 @@ public final class ClientEvents {
                 // If a shaderpack is active, keep our chain torn down; otherwise (re)load it.
                 if (isShaderpackActive()) {
                     closeChain();
-                    StrikePostChains.close();
                     clearPauseLatch();
                     ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Shaderpack active — skipping PostChain build on reload.");
                 } else {
@@ -137,7 +135,6 @@ public final class ClientEvents {
         if (isShaderpackActive()) {
             // Hard guard: never build while a shaderpack is running.
             closeChain();
-            StrikePostChains.close();
             chainReady = false;
             return;
         }
@@ -155,13 +152,11 @@ public final class ClientEvents {
             chainWidth = -1;
             chainHeight = -1;
             resizeChain(minecraft);
-            StrikePostChains.reload(resourceManager);
             ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Built PostChain (no shaderpack active).");
         } catch (IOException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
             chainReady = false;
             closeChain();
-            StrikePostChains.close();
         }
     }
 
@@ -185,7 +180,6 @@ public final class ClientEvents {
         if (isShaderpackActive()) return; // skip any PostChain handling while shaderpack active
         if (!chainReady || railgunChain == null) return;
         resizeChain(Minecraft.getInstance());
-        StrikePostChains.resize(Minecraft.getInstance());
     }
 
     @SubscribeEvent
@@ -215,16 +209,6 @@ public final class ClientEvents {
         Matrix4f inverseProjection = new Matrix4f(projection).invert();
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
         Vec3 cameraPos = event.getCamera().getPosition();
-
-        StrikePostChains.renderMarker(
-                projection,
-                inverseProjection,
-                modelView,
-                new Vector3f((float) cameraPos.x, (float) cameraPos.y, (float) cameraPos.z),
-                partial,
-                chargeActiveLive,
-                state
-        );
 
         // ---- Latch a snapshot on the first paused frame while the effect is active ----
         if (paused && anyActiveLive && !pausedLatched) {
@@ -264,6 +248,7 @@ public final class ClientEvents {
             // Not paused (or no latch) -> use live state
             if (!anyActiveLive) {
                 // nothing to draw
+                ClientRaycast.reset();
                 // also clear any stale latch if we weren't paused
                 if (!paused) clearPauseLatch();
                 return;
@@ -289,6 +274,10 @@ public final class ClientEvents {
             if (!paused && pausedLatched) clearPauseLatch();
         }
 
+        if (!renderCharge) {
+            ClientRaycast.reset();
+        }
+
         // ---- Upload uniforms and render ----
         List<PostPass> passes = getPasses();
         if (passes.isEmpty()) {
@@ -296,13 +285,22 @@ public final class ClientEvents {
             return;
         }
 
+        Vec3 markerPos = targetPos;
+        if (renderCharge) {
+            BlockPos blockPos = ClientRaycast.pickBlockPos(minecraft, partial);
+            markerPos = new Vec3(blockPos.getX() + 0.5D, blockPos.getY() + 0.5D, blockPos.getZ() + 0.5D);
+        } else if (markerPos == null) {
+            markerPos = Vec3.ZERO;
+        }
+
         applyUniforms(
                 passes,
                 modelView, projection, inverseProjection,
-                cameraPos, targetPos,
+                cameraPos, targetPos, markerPos,
                 distance, effectSeconds,
                 /* isBlockHit */ (hitKindOrdinal != RailgunState.HitKind.NONE.ordinal()) ? 1.0F : 0.0F,
                 renderStrike,
+                renderCharge,
                 state,
                 hitKindOrdinal
         );
@@ -414,9 +412,9 @@ public final class ClientEvents {
     private static void applyUniforms(
             List<PostPass> passes,
             Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection,
-            Vec3 cameraPos, Vec3 targetPos,
+            Vec3 cameraPos, Vec3 targetPos, Vec3 markerPos,
             float distance, float timeSeconds,
-            float isBlockHit, boolean strikeActive,
+            float isBlockHit, boolean strikeActive, boolean chargeActive,
             RailgunState state, int hitKindOrdinal
     ) {
         if (passes.isEmpty()) return;
@@ -442,7 +440,7 @@ public final class ClientEvents {
             if (expectsModelViewMatrix) setMatrix(effect, "ModelViewMat", modelView);
             setMatrix(effect, "InverseTransformMatrix", inverseProjection);
             setVec3(effect, "CameraPosition", cameraPos);
-            setVec3(effect, "BlockPosition", targetPos);
+            setVec3(effect, "BlockPosition", markerPos);
             setVec3(effect, "HitPos", targetPos);
             setVec2(effect, "OutSize", width, height);
 
@@ -457,7 +455,7 @@ public final class ClientEvents {
             setFloat(effect, "Distance", distance);
             setFloat(effect, "IsBlockHit", isBlockHit);
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
-            setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
+            setFloat(effect, "SelectionActive", chargeActive ? 1.0F : 0.0F);
             setInt(effect, "HitKind", hitKindOrdinal);
             setFloat(effect, "StrikeRadius", strikeRadius);
         }
@@ -551,7 +549,7 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
-        StrikePostChains.close();
+        ClientRaycast.reset();
     }
 
     private static void handleChargeAudio(RailgunState state) {
