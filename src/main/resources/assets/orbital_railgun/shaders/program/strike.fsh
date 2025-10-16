@@ -138,8 +138,8 @@ vec4 applyMarker(vec4 baseColor, float depth) {
         return baseColor;
     }
 
-    vec3 relative = BlockPosition - CameraPosition;
-    vec4 clip = ProjMat * ModelViewMat * vec4(relative, 1.0);
+    vec4 viewPos = ModelViewMat * vec4(BlockPosition, 1.0);
+    vec4 clip = ProjMat * viewPos;
     if (clip.w <= 0.0) {
         return baseColor;
     }
@@ -149,6 +149,7 @@ vec4 applyMarker(vec4 baseColor, float depth) {
     }
 
     vec2 screenPos = (clip.xy / clip.w) * 0.5 + 0.5;
+    screenPos.y = 1.0 - screenPos.y;
     vec2 delta = texCoord - screenPos;
     float dist = length(delta);
 
