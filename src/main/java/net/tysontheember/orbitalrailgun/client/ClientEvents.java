@@ -33,6 +33,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.tysontheember.orbitalrailgun.ForgeOrbitalRailgunMod;
 import net.tysontheember.orbitalrailgun.client.railgun.RailgunState;
+import net.tysontheember.orbitalrailgun.client.util.ClientRaycast;
 import net.tysontheember.orbitalrailgun.item.OrbitalRailgunItem;
 import net.tysontheember.orbitalrailgun.config.OrbitalConfig;
 import net.tysontheember.orbitalrailgun.network.C2S_RequestFire;
@@ -187,7 +188,7 @@ public final class ClientEvents {
         if (isShaderpackActive()) return;
 
         if (!chainReady || railgunChain == null) return;
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_PARTICLES) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) return;
@@ -204,6 +205,11 @@ public final class ClientEvents {
         boolean paused = minecraft.isPaused();
         float partial = paused ? 0f : event.getPartialTick();
 
+        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
+        Matrix4f inverseProjection = new Matrix4f(projection).invert();
+        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
+        Vec3 cameraPos = event.getCamera().getPosition();
+
         // ---- Latch a snapshot on the first paused frame while the effect is active ----
         if (paused && anyActiveLive && !pausedLatched) {
             pausedLatched = true;
@@ -219,8 +225,7 @@ public final class ClientEvents {
             Vec3 liveTarget = strikeActiveLive ? state.getStrikePos() : state.getHitPos();
             latchedTargetPos = liveTarget == null ? Vec3.ZERO : liveTarget;
 
-            Vec3 cam = event.getCamera().getPosition();
-            latchedDistance = (float) (latchedTargetPos == null ? 0.0 : cam.distanceTo(latchedTargetPos));
+            latchedDistance = (float) (latchedTargetPos == null ? 0.0 : cameraPos.distanceTo(latchedTargetPos));
 
             latchedHitKind = state.getHitKind().ordinal();
         }
@@ -243,6 +248,7 @@ public final class ClientEvents {
             // Not paused (or no latch) -> use live state
             if (!anyActiveLive) {
                 // nothing to draw
+                ClientRaycast.reset();
                 // also clear any stale latch if we weren't paused
                 if (!paused) clearPauseLatch();
                 return;
@@ -260,8 +266,7 @@ public final class ClientEvents {
             targetPos = renderStrike ? state.getStrikePos() : state.getHitPos();
             if (targetPos == null) targetPos = Vec3.ZERO;
 
-            Vec3 cam = event.getCamera().getPosition();
-            distance = (float) cam.distanceTo(targetPos);
+            distance = (float) cameraPos.distanceTo(targetPos);
 
             hitKindOrdinal = state.getHitKind().ordinal();
 
@@ -269,25 +274,33 @@ public final class ClientEvents {
             if (!paused && pausedLatched) clearPauseLatch();
         }
 
-        // ---- Upload uniforms and render ----
-        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
-        Matrix4f inverseProjection = new Matrix4f(projection).invert();
-        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
-        Vec3 cameraPos = event.getCamera().getPosition();
+        if (!renderCharge) {
+            ClientRaycast.reset();
+        }
 
+        // ---- Upload uniforms and render ----
         List<PostPass> passes = getPasses();
         if (passes.isEmpty()) {
             if (!paused) clearPauseLatch();
             return;
         }
 
+        Vec3 markerPos = targetPos;
+        if (renderCharge) {
+            BlockPos blockPos = ClientRaycast.pickBlockPos(minecraft, partial);
+            markerPos = new Vec3(blockPos.getX() + 0.5D, blockPos.getY() + 0.5D, blockPos.getZ() + 0.5D);
+        } else if (markerPos == null) {
+            markerPos = Vec3.ZERO;
+        }
+
         applyUniforms(
                 passes,
                 modelView, projection, inverseProjection,
-                cameraPos, targetPos,
+                cameraPos, targetPos, markerPos,
                 distance, effectSeconds,
                 /* isBlockHit */ (hitKindOrdinal != RailgunState.HitKind.NONE.ordinal()) ? 1.0F : 0.0F,
                 renderStrike,
+                renderCharge,
                 state,
                 hitKindOrdinal
         );
@@ -399,9 +412,9 @@ public final class ClientEvents {
     private static void applyUniforms(
             List<PostPass> passes,
             Matrix4f modelView, Matrix4f projection, Matrix4f inverseProjection,
-            Vec3 cameraPos, Vec3 targetPos,
+            Vec3 cameraPos, Vec3 targetPos, Vec3 markerPos,
             float distance, float timeSeconds,
-            float isBlockHit, boolean strikeActive,
+            float isBlockHit, boolean strikeActive, boolean chargeActive,
             RailgunState state, int hitKindOrdinal
     ) {
         if (passes.isEmpty()) return;
@@ -427,7 +440,7 @@ public final class ClientEvents {
             if (expectsModelViewMatrix) setMatrix(effect, "ModelViewMat", modelView);
             setMatrix(effect, "InverseTransformMatrix", inverseProjection);
             setVec3(effect, "CameraPosition", cameraPos);
-            setVec3(effect, "BlockPosition", targetPos);
+            setVec3(effect, "BlockPosition", markerPos);
             setVec3(effect, "HitPos", targetPos);
             setVec2(effect, "OutSize", width, height);
 
@@ -442,7 +455,7 @@ public final class ClientEvents {
             setFloat(effect, "Distance", distance);
             setFloat(effect, "IsBlockHit", isBlockHit);
             setFloat(effect, "StrikeActive", strikeActive ? 1.0F : 0.0F);
-            setFloat(effect, "SelectionActive", state.isCharging() ? 1.0F : 0.0F);
+            setFloat(effect, "SelectionActive", chargeActive ? 1.0F : 0.0F);
             setInt(effect, "HitKind", hitKindOrdinal);
             setFloat(effect, "StrikeRadius", strikeRadius);
         }
@@ -536,6 +549,7 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+        ClientRaycast.reset();
     }
 
     private static void handleChargeAudio(RailgunState state) {
