@@ -134,21 +134,21 @@ public final class OrbitalConfig {
 
             beamColorHex = builder
                     .comment("Hex color (#RRGGBB or #RRGGBBAA) applied to the beam shader tint.")
-                    .define("beamColor", "#FF7A00");
+                    .define("beamColor", "#FFFFFF");
             beamAlpha = builder
                     .comment("Alpha multiplier applied to the beam shader.")
                     .defineInRange("beamAlpha", 1.0D, 0.0D, 1.0D);
 
             markerInnerHex = builder
                     .comment("Hex color (#RRGGBB or #RRGGBBAA) for the targeting marker inner elements.")
-                    .define("markerInnerColor", "#FFA800");
+                    .define("markerInnerColor", "#FFFFFF");
             markerInnerAlpha = builder
                     .comment("Alpha multiplier for the targeting marker inner elements.")
                     .defineInRange("markerInnerAlpha", 0.95D, 0.0D, 1.0D);
 
             markerOuterHex = builder
                     .comment("Hex color (#RRGGBB or #RRGGBBAA) for the targeting marker outer elements.")
-                    .define("markerOuterColor", "#FF3D00");
+                    .define("markerOuterColor", "#FFFFFF");
             markerOuterAlpha = builder
                     .comment("Alpha multiplier for the targeting marker outer elements.")
                     .defineInRange("markerOuterAlpha", 0.85D, 0.0D, 1.0D);

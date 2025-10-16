@@ -1,4 +1,4 @@
-#version 330 compatibility
+#version 330 core
 #define STEPS 500
 #define MIN_DIST 0.001
 #define MAX_DIST 250.
@@ -22,8 +22,8 @@ vec2 scale = vec2(0.);
 uniform float iTime;
 uniform float StrikeRadius;
 
-uniform vec3  u_BeamColor;
-uniform float u_BeamAlpha;
+//uniform vec3  u_BeamColor;
+//uniform float u_BeamAlpha;
 
 uniform vec3  u_MarkerInnerColor;
 uniform float u_MarkerInnerAlpha;
