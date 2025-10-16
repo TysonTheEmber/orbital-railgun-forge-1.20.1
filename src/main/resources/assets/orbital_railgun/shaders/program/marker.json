@@ -1,0 +1,26 @@
+{
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha"
+  },
+  "vertex": "orbital_railgun:marker",
+  "fragment": "orbital_railgun:marker",
+  "attributes": [ "Position" ],
+  "samplers": [
+    { "name": "DiffuseSampler" },
+    { "name": "DepthSampler" }
+  ],
+  "uniforms": [
+    { "name": "InverseTransformMatrix", "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1] },
+    { "name": "ModelViewMat",           "type": "matrix4x4", "count": 16, "values": [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1] },
+    { "name": "CameraPosition",         "type": "float", "count": 3, "values": [0,0,0] },
+    { "name": "BlockPosition",          "type": "float", "count": 3, "values": [0,0,0] },
+    { "name": "iTime",                  "type": "float", "values": [0] },
+    { "name": "StrikeRadius",           "type": "float", "values": [3] },
+    { "name": "u_MarkerInnerColor",     "type": "float", "count": 3, "values": [1,1,1] },
+    { "name": "u_MarkerInnerAlpha",     "type": "float", "values": [0.9] },
+    { "name": "u_MarkerOuterColor",     "type": "float", "count": 3, "values": [1,1,1] },
+    { "name": "u_MarkerOuterAlpha",     "type": "float", "values": [0.6] }
+  ]
+}

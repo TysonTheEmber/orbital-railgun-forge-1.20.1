@@ -54,7 +54,8 @@ public final class ClientEvents {
     private static final Set<ResourceLocation> MODEL_VIEW_UNIFORM_PASSES = Set.of(
             ForgeOrbitalRailgunMod.id("strike"),
             ForgeOrbitalRailgunMod.id("gui"),
-            ForgeOrbitalRailgunMod.id("chromatic_abjuration")
+            ForgeOrbitalRailgunMod.id("chromatic_abjuration"),
+            ForgeOrbitalRailgunMod.id("marker")
     );
 
     private static PostChain railgunChain;
@@ -151,6 +152,7 @@ public final class ClientEvents {
             chainWidth = -1;
             chainHeight = -1;
             resizeChain(minecraft);
+            RailgunShaders.reload(minecraft, resourceManager);
             ForgeOrbitalRailgunMod.LOGGER.info("[orbital_railgun] Built PostChain (no shaderpack active).");
         } catch (IOException exception) {
             ForgeOrbitalRailgunMod.LOGGER.error("Failed to load orbital railgun post chain", exception);
@@ -172,6 +174,7 @@ public final class ClientEvents {
         railgunChain.resize(width, height);
         chainWidth = width;
         chainHeight = height;
+        RailgunShaders.resize(minecraft);
     }
 
     @SubscribeEvent
@@ -275,7 +278,7 @@ public final class ClientEvents {
         Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
         Vec3 cameraPos = event.getCamera().getPosition();
 
-        List<PostPass> passes = getPasses();
+        List<PostPass> passes = getPasses(railgunChain);
         if (passes.isEmpty()) {
             if (!paused) clearPauseLatch();
             return;
@@ -299,6 +302,65 @@ public final class ClientEvents {
 
         // Ensure subsequent passes (like hands) render to the correct framebuffer.
         Minecraft.getInstance().getMainRenderTarget().bindWrite(false);
+    }
+
+    @SubscribeEvent
+    public static void onRenderMarker(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER) return;
+        if (isShaderpackActive()) return;
+
+        PostChain markerChain = RailgunShaders.marker();
+        if (markerChain == null) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) return;
+
+        LocalPlayer player = minecraft.player;
+        if (player == null) return;
+
+        boolean holdingRailgun = player.getMainHandItem().getItem() instanceof OrbitalRailgunItem
+                || player.getOffhandItem().getItem() instanceof OrbitalRailgunItem;
+        if (!holdingRailgun) return;
+
+        RailgunState state = RailgunState.getInstance();
+        if (!state.isCharging()) return;
+
+        if (!(minecraft.hitResult instanceof BlockHitResult blockHitResult)) return;
+
+        RailgunShaders.resize(minecraft);
+
+        Matrix4f projection = new Matrix4f(event.getProjectionMatrix());
+        Matrix4f inverseProjection = new Matrix4f(projection).invert();
+        Matrix4f modelView = new Matrix4f(event.getPoseStack().last().pose());
+        Vec3 cameraPos = minecraft.gameRenderer.getMainCamera().getPosition();
+        Vec3 blockCenter = Vec3.atCenterOf(blockHitResult.getBlockPos());
+
+        float partial = minecraft.isPaused() ? 0f : event.getPartialTick();
+        float timeSeconds = (float) ((minecraft.level.getGameTime() + partial) / 20.0F);
+
+        float strikeRadius = state.getTransientVisualStrikeRadius()
+                .orElse((float) (OrbitalConfig.DESTRUCTION_DIAMETER.get() * 0.5D));
+
+        List<PostPass> passes = getPasses(markerChain);
+        if (passes.isEmpty()) return;
+
+        for (PostPass pass : passes) {
+            EffectInstance effect = pass.getEffect();
+            if (effect == null) continue;
+
+            setMatrix(effect, "ModelViewMat", modelView);
+            setMatrix(effect, "InverseTransformMatrix", inverseProjection);
+            setVec3(effect, "CameraPosition", cameraPos);
+            setVec3(effect, "BlockPosition", blockCenter);
+            setFloat(effect, "iTime", timeSeconds);
+            setFloat(effect, "StrikeRadius", strikeRadius);
+        }
+
+        // Share the configurable marker palette with the strike chain.
+        OrbitalShaderUniforms.applyColorUniforms(passes);
+
+        markerChain.process(partial);
+        minecraft.getMainRenderTarget().bindWrite(false);
     }
 
     @SubscribeEvent
@@ -453,11 +515,11 @@ public final class ClientEvents {
         return name != null ? ResourceLocation.tryParse(name) : null;
     }
 
-    private static List<PostPass> getPasses() {
-        if (railgunChain == null) return Collections.emptyList();
+    private static List<PostPass> getPasses(PostChain chain) {
+        if (chain == null) return Collections.emptyList();
         if (PASSES_FIELD == null) return Collections.emptyList();
         try {
-            Object value = PASSES_FIELD.get(railgunChain);
+            Object value = PASSES_FIELD.get(chain);
             if (value instanceof List<?> list) {
                 @SuppressWarnings("unchecked")
                 List<PostPass> passes = (List<PostPass>) list;
@@ -536,6 +598,7 @@ public final class ClientEvents {
         chainReady = false;
         chainWidth = -1;
         chainHeight = -1;
+        RailgunShaders.close();
     }
 
     private static void handleChargeAudio(RailgunState state) {

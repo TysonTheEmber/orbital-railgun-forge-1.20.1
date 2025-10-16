@@ -1,0 +1,26 @@
+{
+  "targets": [ "swap" ],
+  "passes": [
+    {
+      "name": "orbital_railgun:marker",
+      "intarget": "minecraft:main",
+      "outtarget": "swap",
+      "auxtargets": [
+        { "name": "DiffuseSampler", "id": "minecraft:main" },
+        { "name": "DepthSampler",   "id": "minecraft:depth" }
+      ],
+      "uniforms": [
+        { "name": "InverseTransformMatrix", "type": "matrix4x4" },
+        { "name": "ModelViewMat",           "type": "matrix4x4" },
+        { "name": "CameraPosition",         "type": "float", "count": 3 },
+        { "name": "BlockPosition",          "type": "float", "count": 3 },
+        { "name": "iTime",                  "type": "float" },
+        { "name": "StrikeRadius",           "type": "float" },
+        { "name": "u_MarkerInnerColor",     "type": "float", "count": 3 },
+        { "name": "u_MarkerInnerAlpha",     "type": "float" },
+        { "name": "u_MarkerOuterColor",     "type": "float", "count": 3 },
+        { "name": "u_MarkerOuterAlpha",     "type": "float" }
+      ]
+    }
+  ]
+}
